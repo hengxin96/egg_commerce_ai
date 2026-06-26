@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: ${EGG_POSTGRES_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pgvector/pgvector:pg17}
+    container_name: egg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${EGG_POSTGRES_DB:-egg}
+      POSTGRES_USER: ${EGG_POSTGRES_USER:-egg}
+      POSTGRES_PASSWORD: ${EGG_POSTGRES_PASSWORD:-egg_dev_password}
+      TZ: Asia/Shanghai
+    ports:
+      - "${EGG_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - egg-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  egg-postgres-data:
