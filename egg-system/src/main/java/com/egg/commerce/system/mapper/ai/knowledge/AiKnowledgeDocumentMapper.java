@@ -7,6 +7,8 @@ public interface AiKnowledgeDocumentMapper
 {
     AiKnowledgeDocument selectAiKnowledgeDocumentById(String id);
 
+    List<AiKnowledgeDocument> selectAiKnowledgeDocumentByIds(String[] ids);
+
     List<AiKnowledgeDocument> selectAiKnowledgeDocumentList(AiKnowledgeDocument query);
 
     int insertAiKnowledgeDocument(AiKnowledgeDocument document);

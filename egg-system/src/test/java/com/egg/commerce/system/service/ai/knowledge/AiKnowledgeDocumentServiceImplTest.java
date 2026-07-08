@@ -10,9 +10,13 @@ import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper;
 import com.egg.commerce.system.service.ai.knowledge.impl.AiKnowledgeDocumentServiceImpl;
+import com.egg.commerce.system.service.ai.rag.AiDocumentChunk;
+import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
+import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,8 +31,10 @@ class AiKnowledgeDocumentServiceImplTest
     {
         FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
         FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
         FakeVectorization vectorization = new FakeVectorization();
-        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorization);
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
 
         AiKnowledgeDocument document = service.upload(
                 new MockMultipartFile("file", "rules.txt", "text/plain", "规则".getBytes()), 100L);
@@ -47,8 +53,10 @@ class AiKnowledgeDocumentServiceImplTest
     {
         FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
         FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
         FakeVectorization vectorization = new FakeVectorization();
-        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorization);
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.upload(new MockMultipartFile("file", new byte[0]), 100L));
@@ -61,8 +69,10 @@ class AiKnowledgeDocumentServiceImplTest
     {
         FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
         FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
         FakeVectorization vectorization = new FakeVectorization();
-        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorization);
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
         AiKnowledgeDocument existing = new AiKnowledgeDocument();
         existing.setId("doc-1");
         existing.setFileName("rules.txt");
@@ -79,6 +89,29 @@ class AiKnowledgeDocumentServiceImplTest
         assertEquals("rules.txt", vectorization.startedFileName);
     }
 
+    @Test
+    void deleteRemovesVectorsAndOssObjectBeforeMetadata()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+        AiKnowledgeDocument existing = new AiKnowledgeDocument();
+        existing.setId("doc-1");
+        existing.setOssObjectKey("knowledge/rules.txt");
+        existing.setVectorIds("[\"v1\",\"v2\"]");
+        mapper.documents.put(existing.getId(), existing);
+
+        int deleted = service.deleteAiKnowledgeDocumentByIds(new String[] { "doc-1" });
+
+        assertEquals(1, deleted);
+        assertEquals(List.of("v1", "v2"), vectorStore.deletedVectorIds);
+        assertEquals(List.of("knowledge/rules.txt"), storage.deletedObjectKeys);
+        assertNull(mapper.documents.get("doc-1"));
+    }
+
     private static class FakeKnowledgeMapper implements AiKnowledgeDocumentMapper
     {
         private final Map<String, AiKnowledgeDocument> documents = new LinkedHashMap<>();
@@ -87,6 +120,21 @@ class AiKnowledgeDocumentServiceImplTest
         public AiKnowledgeDocument selectAiKnowledgeDocumentById(String id)
         {
             return documents.get(id);
+        }
+
+        @Override
+        public List<AiKnowledgeDocument> selectAiKnowledgeDocumentByIds(String[] ids)
+        {
+            List<AiKnowledgeDocument> selected = new ArrayList<>();
+            for (String id : ids)
+            {
+                AiKnowledgeDocument document = documents.get(id);
+                if (document != null)
+                {
+                    selected.add(document);
+                }
+            }
+            return selected;
         }
 
         @Override
@@ -126,6 +174,8 @@ class AiKnowledgeDocumentServiceImplTest
 
     private static class FakeStorage implements AiObjectStorageService
     {
+        private final List<String> deletedObjectKeys = new ArrayList<>();
+
         @Override
         public AiStoredObject uploadKnowledgeFile(MultipartFile file)
         {
@@ -141,6 +191,30 @@ class AiKnowledgeDocumentServiceImplTest
         @Override
         public void deleteObject(String objectKey)
         {
+            deletedObjectKeys.add(objectKey);
+        }
+    }
+
+    private static class FakeVectorStore implements AiVectorStoreService
+    {
+        private List<String> deletedVectorIds = new ArrayList<>();
+
+        @Override
+        public List<String> addKnowledgeChunks(String documentId, String fileName, List<AiDocumentChunk> chunks)
+        {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<AiVectorRecord> search(String query, int topK, double minScore)
+        {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void deleteVectors(List<String> vectorIds)
+        {
+            deletedVectorIds = new ArrayList<>(vectorIds);
         }
     }
 

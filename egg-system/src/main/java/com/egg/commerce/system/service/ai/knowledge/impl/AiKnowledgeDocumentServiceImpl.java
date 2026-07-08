@@ -5,9 +5,14 @@ import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper;
 import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeDocumentService;
 import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeVectorizationService;
+import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -20,18 +25,24 @@ public class AiKnowledgeDocumentServiceImpl implements IAiKnowledgeDocumentServi
 {
     private static final String STATUS_PROCESSING = "processing";
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final AiKnowledgeDocumentMapper knowledgeDocumentMapper;
 
     private final AiObjectStorageService objectStorageService;
+
+    private final AiVectorStoreService vectorStoreService;
 
     private final IAiKnowledgeVectorizationService vectorizationService;
 
     public AiKnowledgeDocumentServiceImpl(AiKnowledgeDocumentMapper knowledgeDocumentMapper,
             AiObjectStorageService objectStorageService,
+            AiVectorStoreService vectorStoreService,
             IAiKnowledgeVectorizationService vectorizationService)
     {
         this.knowledgeDocumentMapper = knowledgeDocumentMapper;
         this.objectStorageService = objectStorageService;
+        this.vectorStoreService = vectorStoreService;
         this.vectorizationService = vectorizationService;
     }
 
@@ -67,6 +78,15 @@ public class AiKnowledgeDocumentServiceImpl implements IAiKnowledgeDocumentServi
     @Override
     public int deleteAiKnowledgeDocumentByIds(String[] ids)
     {
+        if (ids == null || ids.length == 0)
+        {
+            return 0;
+        }
+        List<AiKnowledgeDocument> documents = knowledgeDocumentMapper.selectAiKnowledgeDocumentByIds(ids);
+        for (AiKnowledgeDocument document : documents)
+        {
+            cleanupKnowledgeArtifacts(document);
+        }
         return knowledgeDocumentMapper.deleteAiKnowledgeDocumentByIds(ids);
     }
 
@@ -132,6 +152,41 @@ public class AiKnowledgeDocumentServiceImpl implements IAiKnowledgeDocumentServi
     {
         String extension = StringUtils.substringAfterLast(StringUtils.defaultString(fileName), ".");
         return StringUtils.isBlank(extension) ? null : extension;
+    }
+
+    private void cleanupKnowledgeArtifacts(AiKnowledgeDocument document)
+    {
+        if (document == null)
+        {
+            return;
+        }
+        List<String> vectorIds = parseVectorIds(document.getVectorIds());
+        if (!vectorIds.isEmpty())
+        {
+            vectorStoreService.deleteVectors(vectorIds);
+        }
+        if (StringUtils.isNotBlank(document.getOssObjectKey()))
+        {
+            objectStorageService.deleteObject(document.getOssObjectKey());
+        }
+    }
+
+    private List<String> parseVectorIds(String vectorIds)
+    {
+        if (StringUtils.isBlank(vectorIds) || "[]".equals(vectorIds.trim()))
+        {
+            return Collections.emptyList();
+        }
+        try
+        {
+            return OBJECT_MAPPER.readValue(vectorIds, new TypeReference<List<String>>()
+            {
+            });
+        }
+        catch (JsonProcessingException e)
+        {
+            throw new ServiceException("知识库向量标识格式不正确");
+        }
     }
 
     private static class AiInMemoryMultipartFile implements MultipartFile

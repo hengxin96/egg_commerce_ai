@@ -52,6 +52,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id}
     </select>
 
+    <select id="selectAiKnowledgeDocumentByIds" parameterType="String" resultMap="AiKnowledgeDocumentResult">
+        <include refid="selectAiKnowledgeDocumentVo"/>
+        where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <select id="selectAiKnowledgeDocumentList"
             parameterType="com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument"
             resultMap="AiKnowledgeDocumentResult">
