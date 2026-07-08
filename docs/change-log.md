@@ -268,6 +268,34 @@ Notes:
 
 - This fixes backend admin page access only. No database schema, front-stage user page, billing, tenant, team, or video logic was changed.
 
+## 2026-07-09
+
+### Added AI Sensitive Category And Word Backend CRUD
+
+Author: Codex
+
+What changed:
+
+- Added backend domain, mapper, service, controller, and mapper XML support for `ai_sensitive_categories` and `ai_sensitive_words`.
+- Added service tests that lock in default `enabled` status handling and blank-word validation for sensitive word writes.
+
+Why:
+
+- The admin-side sensitive word management flow needs backend CRUD APIs before the RAG moderation and knowledge tooling can reuse this configuration safely.
+
+Main files:
+
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/sensitive`
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/sensitive`
+- `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/sensitive`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/sensitive`
+- `egg-system/src/main/resources/mapper/ai/sensitive`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/sensitive`
+
+Notes:
+
+- Category list/detail uses the existing `ai:sensitive:category:query` permission because the SQL menu set does not define `ai:sensitive:category:list`.
+
 ### Planned AI Knowledge, Sensitive Word, And RAG Migration
 
 Author: Codex

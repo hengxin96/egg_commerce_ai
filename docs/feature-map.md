@@ -165,6 +165,22 @@ Frontend planned paths:
 - Chat components: `egg-user-web/src/components/chat`
 - Admin RAG management: `egg-ui/src/views/ai/knowledge` if added to Egg admin
 
+### Sensitive Word Management
+
+Purpose:
+
+- Maintain AI sensitive word categories and individual blocked terms for later moderation, prompt-guard, and RAG safety workflows.
+
+Backend paths:
+
+- Category controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/sensitive/AiSensitiveCategoryController.java`
+- Word controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/sensitive/AiSensitiveWordController.java`
+- Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/sensitive`
+- Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/sensitive`
+- Service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/sensitive`
+- Mapper XML: `egg-system/src/main/resources/mapper/ai/sensitive`
+- Tables: `ai_sensitive_categories`, `ai_sensitive_words`
+
 ### Knowledge Base Management
 
 Purpose:
