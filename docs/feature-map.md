@@ -188,7 +188,8 @@ Backend paths:
 
 Frontend paths:
 
-- Admin page: `egg-ui/src/views/ai/sensitive`
+- Admin API wrapper: `egg-ui/src/api/ai/sensitive.js`
+- Admin page: `egg-ui/src/views/ai/sensitive/index.vue`
 
 ### Knowledge Base Management
 

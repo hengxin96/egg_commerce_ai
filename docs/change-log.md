@@ -350,6 +350,30 @@ Notes:
 
 - Category list/detail uses the existing `ai:sensitive:category:query` permission because the SQL menu set does not define `ai:sensitive:category:list`.
 
+### Added AI Sensitive Word Admin Page
+
+Author: Codex
+
+What changed:
+
+- Added an Egg admin API wrapper for AI sensitive word categories and words.
+- Added the sensitive word management page with category and word tabs, search, add, edit, delete, status display, and pagination.
+
+Why:
+
+- Admin users need a backend-style management screen for the sensitive word configuration copied into the AI module.
+
+Main files:
+
+- `egg-ui/src/api/ai/sensitive.js`
+- `egg-ui/src/views/ai/sensitive/index.vue`
+- `docs/feature-map.md`
+- `docs/change-log.md`
+
+Notes:
+
+- This is an admin-console configuration page only. It does not add moderation APIs, billing, tenants, teams, A2A, or video features.
+
 ### Planned AI Knowledge, Sensitive Word, And RAG Migration
 
 Author: Codex
