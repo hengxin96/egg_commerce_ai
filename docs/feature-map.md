@@ -196,15 +196,19 @@ Purpose:
 
 - Manage knowledge documents, source files, and retrieval-ready content for RAG.
 
-Backend planned paths:
+Backend paths:
 
 - Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/knowledge`
-- Domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/knowledge`
+- Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/knowledge`
+- Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/knowledge`
+- Service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/knowledge`
+- Mapper XML: `egg-system/src/main/resources/mapper/ai/knowledge`
 - Table: `ai_knowledge_documents`
 
-Frontend planned paths:
+Frontend paths:
 
-- Admin page: `egg-ui/src/views/ai/knowledge`
+- Admin API wrapper: `egg-ui/src/api/ai/knowledge.js`
+- Admin page: `egg-ui/src/views/ai/knowledge/index.vue`
 
 ### RAG Chat
 

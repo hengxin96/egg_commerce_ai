@@ -270,6 +270,30 @@ Notes:
 
 ## 2026-07-09
 
+### Added AI Knowledge Admin Page
+
+Author: Codex
+
+What changed:
+
+- Added an Egg admin API wrapper for AI knowledge documents.
+- Added the admin knowledge page with search, manual file upload, status table, retry, delete, and pagination.
+
+Why:
+
+- Admin users need a management screen for uploaded RAG knowledge files and asynchronous vectorization status.
+
+Main files:
+
+- `egg-ui/src/api/ai/knowledge.js`
+- `egg-ui/src/views/ai/knowledge/index.vue`
+- `docs/feature-map.md`
+- `docs/change-log.md`
+
+Notes:
+
+- This is an admin-console page only. It keeps the existing Egg admin style and does not add billing, tenants, teams, A2A, or video features.
+
 ### Fixed Persisted RAG Sources In Chat History
 
 Author: Codex
