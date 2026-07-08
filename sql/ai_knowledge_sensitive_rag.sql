@@ -139,9 +139,9 @@ INSERT INTO sys_menu (
     create_by, create_time, update_by, update_time, remark
 )
 SELECT 2111, '知识库列表', 2110, 1, '#', '', '', '',
-       1, 0, 'F', '0', '0', 'ai:knowledge:list', '#',
+       1, 0, 'F', '0', '0', 'ai:knowledge:query', '#',
        'admin', now(), '', NULL, ''
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:knowledge:list');
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:knowledge:query');
 
 INSERT INTO sys_menu (
     menu_id, menu_name, parent_id, order_num, path, component, query, route_name,
@@ -190,9 +190,9 @@ INSERT INTO sys_menu (
     create_by, create_time, update_by, update_time, remark
 )
 SELECT 2121, '敏感词分类列表', 2120, 1, '#', '', '', '',
-       1, 0, 'F', '0', '0', 'ai:sensitive:category:list', '#',
+       1, 0, 'F', '0', '0', 'ai:sensitive:category:query', '#',
        'admin', now(), '', NULL, ''
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:sensitive:category:list');
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:sensitive:category:query');
 
 INSERT INTO sys_menu (
     menu_id, menu_name, parent_id, order_num, path, component, query, route_name,
@@ -230,9 +230,9 @@ INSERT INTO sys_menu (
     create_by, create_time, update_by, update_time, remark
 )
 SELECT 2125, '敏感词列表', 2120, 5, '#', '', '', '',
-       1, 0, 'F', '0', '0', 'ai:sensitive:word:list', '#',
+       1, 0, 'F', '0', '0', 'ai:sensitive:word:query', '#',
        'admin', now(), '', NULL, ''
-WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:sensitive:word:list');
+WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'ai:sensitive:word:query');
 
 INSERT INTO sys_menu (
     menu_id, menu_name, parent_id, order_num, path, component, query, route_name,
