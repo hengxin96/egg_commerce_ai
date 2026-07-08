@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnProperty(name = "egg.ai.mock-enabled", havingValue = "false")
+@ConditionalOnProperty(name = "egg.ai.mock-enabled", havingValue = "false", matchIfMissing = true)
 public class AiSimpleChatModelServiceImpl implements AiChatModelService
 {
     @Override

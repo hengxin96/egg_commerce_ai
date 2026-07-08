@@ -119,6 +119,7 @@ Final verification results:
 
 - Added `@Transactional(rollbackFor = Exception.class)` to `AiChatServiceImpl.sendMessage` so user message, assistant message, retrieval sources, and session updates commit or roll back as one chat answer unit.
 - Removed `matchIfMissing = true` from `AiMockChatModelServiceImpl`; mock answers are now selected only when `egg.ai.mock-enabled=true`.
+- Set `AiSimpleChatModelServiceImpl` to match when `egg.ai.mock-enabled` is missing, so chat startup still has a non-mock `AiChatModelService` bean by default.
 
 ## Notes
 
