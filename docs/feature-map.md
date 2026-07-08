@@ -207,11 +207,21 @@ Purpose:
 
 - Provide the front-stage intelligent chat flow and persist chat history plus retrieval sources.
 
-Backend planned paths:
+Backend paths:
 
-- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/chat`
-- Domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/chat`
+- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/chat/AiChatController.java`
+- Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/chat`
+- Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/chat`
+- Service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/chat`
+- Mapper XML: `egg-system/src/main/resources/mapper/ai/chat`
 - Tables: `ai_chat_sessions`, `ai_chat_messages`, `ai_chat_retrieval_sources`
+
+Current APIs:
+
+- `GET /ai/chat/session/list` lists the authenticated user's sessions.
+- `POST /ai/chat/session` creates a session for the authenticated user.
+- `GET /ai/chat/session/{id}/messages` returns message history after session ownership validation.
+- `POST /ai/chat/session/{id}/message` stores the user message, assistant reply, and retrieval sources.
 
 Frontend planned paths:
 

@@ -316,3 +316,30 @@ Main files:
 - `docs/feature-map.md`
 - `.env.example`
 - `docs/change-log.md`
+
+### Added RAG Chat Persistence Backend
+
+Author: Codex
+
+What changed:
+
+- Added backend chat session, message, and retrieval-source domains, mappers, XML mappings, and service logic for RAG chat persistence.
+- Added a front-stage chat controller with session list/create, message history, and send-message endpoints.
+- Added a mock chat-model service controlled by `egg.ai.mock-enabled` and a focused unit test for the chat send flow.
+
+Why:
+
+- Phase-one intelligent chat requires saved sessions, saved messages, retrieval-source traceability, and a backend service contract for the front-stage RAG chat page.
+
+Main files:
+
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/chat`
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/chat`
+- `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/chat`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/chat`
+- `egg-system/src/main/resources/mapper/ai/chat`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/chat`
+
+Notes:
+
+- The send-message flow now validates session ownership before saving anything, stores both user and assistant messages, and links retrieval sources to the assistant reply record.
