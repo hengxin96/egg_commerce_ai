@@ -62,6 +62,21 @@ class AiSensitiveServiceTest
         assertEquals("Sensitive word cannot be blank", exception.getMessage());
     }
 
+    @Test
+    void updateWordRejectsBlankWord()
+    {
+        FakeSensitiveWordMapper mapper = new FakeSensitiveWordMapper();
+        AiSensitiveWordServiceImpl service = new AiSensitiveWordServiceImpl(mapper);
+        AiSensitiveWord word = new AiSensitiveWord();
+        word.setCategoryId(9L);
+        word.setWord("");
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.updateAiSensitiveWord(word));
+
+        assertEquals("Sensitive word cannot be blank", exception.getMessage());
+    }
+
     private static class FakeSensitiveCategoryMapper implements AiSensitiveCategoryMapper
     {
         private AiSensitiveCategory inserted;

@@ -3,6 +3,7 @@ package com.egg.commerce.web.controller.ai.sensitive;
 import com.egg.commerce.common.annotation.Log;
 import com.egg.commerce.common.core.controller.BaseController;
 import com.egg.commerce.common.core.domain.AjaxResult;
+import com.egg.commerce.common.core.page.TableDataInfo;
 import com.egg.commerce.common.enums.BusinessType;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
 import com.egg.commerce.system.service.ai.sensitive.IAiSensitiveCategoryService;
@@ -30,10 +31,11 @@ public class AiSensitiveCategoryController extends BaseController
 
     @PreAuthorize("@ss.hasPermi('ai:sensitive:category:query')")
     @GetMapping("/list")
-    public AjaxResult list(AiSensitiveCategory query)
+    public TableDataInfo list(AiSensitiveCategory query)
     {
+        startPage();
         List<AiSensitiveCategory> list = sensitiveCategoryService.selectAiSensitiveCategoryList(query);
-        return success(list);
+        return getDataTable(list);
     }
 
     @PreAuthorize("@ss.hasPermi('ai:sensitive:category:query')")
