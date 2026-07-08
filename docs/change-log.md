@@ -420,3 +420,27 @@ Main files:
 Notes:
 
 - The send-message flow now validates session ownership before saving anything, stores both user and assistant messages, and links retrieval sources to the assistant reply record.
+
+### Added Front-Stage RAG Chat Page
+
+Author: Codex
+
+What changed:
+
+- Added a front-stage chat API wrapper for chat sessions, message history, and message sending.
+- Replaced the static intelligent chat mock page with a Picset-style two-column chat surface backed by the Java RAG chat APIs.
+
+Why:
+
+- Phase one requires an authenticated intelligent chat experience that saves sessions/messages and shows RAG retrieval sources.
+
+Main files:
+
+- `egg-user-web/src/api/chat.js`
+- `egg-user-web/src/pages/ChatPage.vue`
+- `docs/feature-map.md`
+- `docs/change-log.md`
+
+Notes:
+
+- The page uses the existing `/chat` route and front-stage visual style. It does not add billing, tenants, teams, real video generation, or A2A behavior.

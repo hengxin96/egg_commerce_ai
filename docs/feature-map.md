@@ -63,7 +63,9 @@ Path: `egg-system/src/main/java/com/egg/commerce/system`
 | `egg-user-web/src/components/GeneratorWorkspace.vue` | Shared Picset-style generator workspace for product image, style replication, and story generation setup. Owns local image preview state, six-image limit, drag-and-drop image input, generation parameters, and result placeholder. |
 | `egg-user-web/src/pages/ProductImagesPage.vue` | Full-category product image generation entry. |
 | `egg-user-web/src/pages/StyleClonePage.vue` | Style replication entry that reuses the shared generator workspace. |
+| `egg-user-web/src/pages/ChatPage.vue` | Front-stage intelligent chat page backed by the Java RAG chat APIs, with sessions, message history, and retrieval-source display. |
 | `egg-user-web/src/pages/StoryGenerationPage.vue` | Story generation entry added next to intelligent chat in the first-version top navigation. |
+| `egg-user-web/src/api/chat.js` | Front-stage fetch wrapper for AI chat sessions, message history, and message sending. |
 | `egg-user-web/src/utils/imageUpload.js` | Small upload-selection utility for filtering image files and enforcing the six-image limit. |
 
 Navigation note:
@@ -233,7 +235,7 @@ Current APIs:
 - `GET /ai/chat/session/{id}/messages` returns message history after session ownership validation.
 - `POST /ai/chat/session/{id}/message` stores the user message, assistant reply, and retrieval sources.
 
-Frontend planned paths:
+Frontend paths:
 
 - User page: `egg-user-web/src/pages/ChatPage.vue`
 - User API wrapper: `egg-user-web/src/api/chat.js`
