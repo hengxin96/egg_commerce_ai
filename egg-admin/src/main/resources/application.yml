@@ -12,6 +12,45 @@ egg:
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
+  # AI 电商业务配置
+  # 这些配置集中描述第一版必须跑通的 AI 存储、RAG 和模型网关模块。
+  # - storage/alioss: 商品原图、AI 生成图、编辑图和导出包都进入阿里 OSS，不能依赖模型临时 URL。
+  # - rag/milvus: RAG 使用 Milvus 保存向量，PostgreSQL 保留业务元数据和 retrieval sources 记录。
+  # - model-gateway: 文本、视觉理解、图片生成和 Embedding 都走统一模型网关，方便日志、重试、成本和密钥管理。
+  ai:
+    mock-enabled: ${EGG_AI_MOCK_ENABLED:true}
+    storage:
+      provider: alioss
+      alioss:
+        endpoint: ${EGG_ALIOSS_ENDPOINT:}
+        bucket: ${EGG_ALIOSS_BUCKET:}
+        access-key-id: ${EGG_ALIOSS_ACCESS_KEY_ID:}
+        access-key-secret: ${EGG_ALIOSS_ACCESS_KEY_SECRET:}
+        object-prefix: ${EGG_ALIOSS_OBJECT_PREFIX:ai}
+    rag:
+      enabled: ${EGG_RAG_ENABLED:true}
+      vector-store: milvus
+      chunk-size: ${EGG_RAG_CHUNK_SIZE:800}
+      chunk-overlap: ${EGG_RAG_CHUNK_OVERLAP:120}
+      top-k: ${EGG_RAG_TOP_K:6}
+      min-score: ${EGG_RAG_MIN_SCORE:0.62}
+      embedding-dimension: ${EGG_RAG_EMBEDDING_DIMENSION:1536}
+      milvus:
+        host: ${EGG_MILVUS_HOST:localhost}
+        port: ${EGG_MILVUS_PORT:19530}
+        username: ${EGG_MILVUS_USERNAME:}
+        password: ${EGG_MILVUS_PASSWORD:}
+        database: ${EGG_MILVUS_DATABASE:default}
+        collection: ${EGG_MILVUS_COLLECTION:ai_knowledge_vectors}
+    model-gateway:
+      text:
+        provider: ${EGG_MODEL_TEXT_PROVIDER:dashscope}
+        model: ${EGG_MODEL_TEXT_NAME:qwen-plus}
+        api-key: ${EGG_DASHSCOPE_API_KEY:}
+      embedding:
+        provider: ${EGG_MODEL_EMBEDDING_PROVIDER:dashscope}
+        model: ${EGG_MODEL_EMBEDDING_NAME:text-embedding-v2}
+        api-key: ${EGG_DASHSCOPE_API_KEY:}
 
 # 开发环境配置
 server:
@@ -129,47 +168,6 @@ springdoc:
       display-name: '测试模块'
       paths-to-match: '/**'
       packages-to-scan: com.egg.commerce.web.controller.tool
-
-# AI 电商业务配置
-# 这些配置集中描述第一版必须跑通的 AI 存储、RAG 和模型网关模块。
-# - storage/alioss: 商品原图、AI 生成图、编辑图和导出包都进入阿里 OSS，不能依赖模型临时 URL。
-# - rag/milvus: RAG 使用 Milvus 保存向量，PostgreSQL 保留业务元数据和 retrieval sources 记录。
-# - model-gateway: 文本、视觉理解、图片生成和 Embedding 都走统一模型网关，方便日志、重试、成本和密钥管理。
-egg:
-  ai:
-    mock-enabled: ${EGG_AI_MOCK_ENABLED:true}
-    storage:
-      provider: alioss
-      alioss:
-        endpoint: ${EGG_ALIOSS_ENDPOINT:}
-        bucket: ${EGG_ALIOSS_BUCKET:}
-        access-key-id: ${EGG_ALIOSS_ACCESS_KEY_ID:}
-        access-key-secret: ${EGG_ALIOSS_ACCESS_KEY_SECRET:}
-        object-prefix: ${EGG_ALIOSS_OBJECT_PREFIX:ai}
-    rag:
-      enabled: ${EGG_RAG_ENABLED:true}
-      vector-store: milvus
-      chunk-size: ${EGG_RAG_CHUNK_SIZE:800}
-      chunk-overlap: ${EGG_RAG_CHUNK_OVERLAP:120}
-      top-k: ${EGG_RAG_TOP_K:6}
-      min-score: ${EGG_RAG_MIN_SCORE:0.62}
-      embedding-dimension: ${EGG_RAG_EMBEDDING_DIMENSION:1536}
-      milvus:
-        host: ${EGG_MILVUS_HOST:localhost}
-        port: ${EGG_MILVUS_PORT:19530}
-        username: ${EGG_MILVUS_USERNAME:}
-        password: ${EGG_MILVUS_PASSWORD:}
-        database: ${EGG_MILVUS_DATABASE:default}
-        collection: ${EGG_MILVUS_COLLECTION:ai_knowledge_vectors}
-    model-gateway:
-      text:
-        provider: ${EGG_MODEL_TEXT_PROVIDER:dashscope}
-        model: ${EGG_MODEL_TEXT_NAME:qwen-plus}
-        api-key: ${EGG_DASHSCOPE_API_KEY:}
-      embedding:
-        provider: ${EGG_MODEL_EMBEDDING_PROVIDER:dashscope}
-        model: ${EGG_MODEL_EMBEDDING_NAME:text-embedding-v2}
-        api-key: ${EGG_DASHSCOPE_API_KEY:}
 
 # 防盗链配置
 referer:
