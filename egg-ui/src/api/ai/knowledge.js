@@ -12,8 +12,7 @@ export function uploadKnowledge(data) {
   return request({
     url: '/ai/knowledge/upload',
     method: 'post',
-    data,
-    headers: { 'Content-Type': 'multipart/form-data' }
+    data
   })
 }
 
