@@ -109,3 +109,14 @@ Observed failure:
 
 - Updated `AiSensitiveCategoryController.list` to use the standard Egg paginated list pattern with `TableDataInfo`, `startPage()`, and `getDataTable(list)`.
 - Added a test assertion that sensitive word updates reject blank input, matching the existing create-path validation.
+
+## Task 6 Re-review Fix
+
+- Added a failing test first for deleting a sensitive category that still has linked words.
+- RED command: `mvn "-Dmaven.repo.local=.m2repo" -pl egg-system -Dtest=AiSensitiveServiceTest test`
+- RED result: `deleteCategoryRejectsLinkedWords` failed because no `ServiceException` was thrown.
+- Added `countAiSensitiveWordsByCategoryIds` to the category mapper and XML, then made `AiSensitiveCategoryServiceImpl` reject deletes when linked words exist.
+- Consolidated the duplicate Sensitive Word Management entries in `docs/feature-map.md`.
+- Updated `docs/change-log.md` to mention the linked-word delete guard.
+- GREEN command: `mvn "-Dmaven.repo.local=.m2repo" -pl egg-system -Dtest=AiSensitiveServiceTest test`
+- GREEN result: `Tests run: 5, Failures: 0, Errors: 0, Skipped: 0`.

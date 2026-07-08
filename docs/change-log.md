@@ -278,6 +278,7 @@ What changed:
 
 - Added backend domain, mapper, service, controller, and mapper XML support for `ai_sensitive_categories` and `ai_sensitive_words`.
 - Added service tests that lock in default `enabled` status handling and blank-word validation for sensitive word writes.
+- Added a friendly backend guard that prevents deleting sensitive word categories while they still contain words.
 
 Why:
 

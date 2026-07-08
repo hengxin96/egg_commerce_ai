@@ -77,9 +77,27 @@ class AiSensitiveServiceTest
         assertEquals("Sensitive word cannot be blank", exception.getMessage());
     }
 
+    @Test
+    void deleteCategoryRejectsLinkedWords()
+    {
+        FakeSensitiveCategoryMapper mapper = new FakeSensitiveCategoryMapper();
+        mapper.linkedWordCount = 2;
+        AiSensitiveCategoryServiceImpl service = new AiSensitiveCategoryServiceImpl(mapper);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.deleteAiSensitiveCategoryByIds(new Long[] { 1L }));
+
+        assertEquals("Sensitive category contains words and cannot be deleted", exception.getMessage());
+        assertEquals(0, mapper.deleteCalls);
+    }
+
     private static class FakeSensitiveCategoryMapper implements AiSensitiveCategoryMapper
     {
         private AiSensitiveCategory inserted;
+
+        private int linkedWordCount;
+
+        private int deleteCalls;
 
         @Override
         public AiSensitiveCategory selectAiSensitiveCategoryById(Long id)
@@ -107,8 +125,15 @@ class AiSensitiveServiceTest
         }
 
         @Override
+        public int countAiSensitiveWordsByCategoryIds(Long[] ids)
+        {
+            return linkedWordCount;
+        }
+
+        @Override
         public int deleteAiSensitiveCategoryByIds(Long[] ids)
         {
+            deleteCalls++;
             return 0;
         }
     }

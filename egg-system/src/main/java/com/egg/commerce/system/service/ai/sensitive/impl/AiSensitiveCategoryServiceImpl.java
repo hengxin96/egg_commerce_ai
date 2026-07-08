@@ -1,5 +1,6 @@
 package com.egg.commerce.system.service.ai.sensitive.impl;
 
+import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
 import com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveCategoryMapper;
 import com.egg.commerce.system.service.ai.sensitive.IAiSensitiveCategoryService;
@@ -54,6 +55,15 @@ public class AiSensitiveCategoryServiceImpl implements IAiSensitiveCategoryServi
     @Override
     public int deleteAiSensitiveCategoryByIds(Long[] ids)
     {
+        if (ids == null || ids.length == 0)
+        {
+            return 0;
+        }
+        // Keep the admin CRUD flow friendly: PostgreSQL would reject linked rows, but with a low-level FK error.
+        if (sensitiveCategoryMapper.countAiSensitiveWordsByCategoryIds(ids) > 0)
+        {
+            throw new ServiceException("Sensitive category contains words and cannot be deleted");
+        }
         return sensitiveCategoryMapper.deleteAiSensitiveCategoryByIds(ids);
     }
 }

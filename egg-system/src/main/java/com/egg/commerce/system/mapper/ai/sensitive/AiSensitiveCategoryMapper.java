@@ -13,5 +13,7 @@ public interface AiSensitiveCategoryMapper
 
     int updateAiSensitiveCategory(AiSensitiveCategory category);
 
+    int countAiSensitiveWordsByCategoryIds(Long[] ids);
+
     int deleteAiSensitiveCategoryByIds(Long[] ids);
 }

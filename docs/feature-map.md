@@ -181,6 +181,10 @@ Backend paths:
 - Mapper XML: `egg-system/src/main/resources/mapper/ai/sensitive`
 - Tables: `ai_sensitive_categories`, `ai_sensitive_words`
 
+Frontend paths:
+
+- Admin page: `egg-ui/src/views/ai/sensitive`
+
 ### Knowledge Base Management
 
 Purpose:
@@ -196,22 +200,6 @@ Backend planned paths:
 Frontend planned paths:
 
 - Admin page: `egg-ui/src/views/ai/knowledge`
-
-### Sensitive Word Management
-
-Purpose:
-
-- Manage sensitive word categories and terms for audit and compliance checks.
-
-Backend planned paths:
-
-- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/sensitive`
-- Domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/sensitive`
-- Tables: `ai_sensitive_categories`, `ai_sensitive_words`
-
-Frontend planned paths:
-
-- Admin page: `egg-ui/src/views/ai/sensitive`
 
 ### RAG Chat
 
