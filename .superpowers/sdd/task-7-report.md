@@ -115,6 +115,11 @@ Final verification results:
 - `mvn "-Dmaven.repo.local=.m2repo" -pl egg-admin -am -DskipTests compile` passed.
 - `git diff --check d979a56..HEAD` passed.
 
+### Transaction And Mock Wiring Fix
+
+- Added `@Transactional(rollbackFor = Exception.class)` to `AiChatServiceImpl.sendMessage` so user message, assistant message, retrieval sources, and session updates commit or roll back as one chat answer unit.
+- Removed `matchIfMissing = true` from `AiMockChatModelServiceImpl`; mock answers are now selected only when `egg.ai.mock-enabled=true`.
+
 ## Notes
 
 - The unit test focuses on the Task 7 persistence contract: ownership validation and full send-message write flow.

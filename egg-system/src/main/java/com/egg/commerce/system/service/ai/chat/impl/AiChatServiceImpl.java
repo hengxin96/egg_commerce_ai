@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AiChatServiceImpl implements IAiChatService
@@ -151,6 +152,7 @@ public class AiChatServiceImpl implements IAiChatService
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public AiChatResponse sendMessage(String sessionId, Long userId, String content)
     {
         AiChatSession session = requireOwnedSession(sessionId, userId);
