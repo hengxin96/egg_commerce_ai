@@ -444,3 +444,24 @@ Main files:
 Notes:
 
 - The page uses the existing `/chat` route and front-stage visual style. It does not add billing, tenants, teams, real video generation, or A2A behavior.
+
+### Aligned AI Service Interface Names
+
+Author: Codex
+
+What changed:
+
+- Renamed AI service interfaces from `IAi...` to `Ai...` while keeping implementation classes as `Ai...Impl`.
+
+Why:
+
+- AI module Java names should start with `Ai`, matching the user's naming rule for code under AI folders.
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai`
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai`
+
+Notes:
+
+- This is a Java naming alignment only. Backend behavior and database schema did not change.

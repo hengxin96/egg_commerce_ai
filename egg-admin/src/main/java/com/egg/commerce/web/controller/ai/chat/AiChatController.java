@@ -4,7 +4,7 @@ import com.egg.commerce.common.core.controller.BaseController;
 import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.system.domain.ai.chat.AiChatRequest;
 import com.egg.commerce.system.domain.ai.chat.AiChatSession;
-import com.egg.commerce.system.service.ai.chat.IAiChatService;
+import com.egg.commerce.system.service.ai.chat.AiChatService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,9 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/ai/chat")
 public class AiChatController extends BaseController
 {
-    private final IAiChatService chatService;
+    private final AiChatService chatService;
 
-    public AiChatController(IAiChatService chatService)
+    public AiChatController(AiChatService chatService)
     {
         this.chatService = chatService;
     }

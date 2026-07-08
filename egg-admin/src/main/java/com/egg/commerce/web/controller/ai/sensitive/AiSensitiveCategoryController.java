@@ -6,7 +6,7 @@ import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.common.core.page.TableDataInfo;
 import com.egg.commerce.common.enums.BusinessType;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
-import com.egg.commerce.system.service.ai.sensitive.IAiSensitiveCategoryService;
+import com.egg.commerce.system.service.ai.sensitive.AiSensitiveCategoryService;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,9 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/ai/sensitive/category")
 public class AiSensitiveCategoryController extends BaseController
 {
-    private final IAiSensitiveCategoryService sensitiveCategoryService;
+    private final AiSensitiveCategoryService sensitiveCategoryService;
 
-    public AiSensitiveCategoryController(IAiSensitiveCategoryService sensitiveCategoryService)
+    public AiSensitiveCategoryController(AiSensitiveCategoryService sensitiveCategoryService)
     {
         this.sensitiveCategoryService = sensitiveCategoryService;
     }

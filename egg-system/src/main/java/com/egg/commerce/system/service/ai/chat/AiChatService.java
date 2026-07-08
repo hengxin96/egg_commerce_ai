@@ -5,7 +5,7 @@ import com.egg.commerce.system.domain.ai.chat.AiChatResponse;
 import com.egg.commerce.system.domain.ai.chat.AiChatSession;
 import java.util.List;
 
-public interface IAiChatService
+public interface AiChatService
 {
     List<AiChatSession> selectSessionList(Long userId);
 

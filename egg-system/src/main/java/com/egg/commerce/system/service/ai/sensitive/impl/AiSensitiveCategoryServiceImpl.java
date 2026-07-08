@@ -3,14 +3,14 @@ package com.egg.commerce.system.service.ai.sensitive.impl;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
 import com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveCategoryMapper;
-import com.egg.commerce.system.service.ai.sensitive.IAiSensitiveCategoryService;
+import com.egg.commerce.system.service.ai.sensitive.AiSensitiveCategoryService;
 import java.util.Date;
 import java.util.List;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 @Service
-public class AiSensitiveCategoryServiceImpl implements IAiSensitiveCategoryService
+public class AiSensitiveCategoryServiceImpl implements AiSensitiveCategoryService
 {
     private static final String STATUS_ENABLED = "enabled";
 

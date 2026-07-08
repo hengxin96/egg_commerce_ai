@@ -6,7 +6,7 @@ import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.common.core.page.TableDataInfo;
 import com.egg.commerce.common.enums.BusinessType;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord;
-import com.egg.commerce.system.service.ai.sensitive.IAiSensitiveWordService;
+import com.egg.commerce.system.service.ai.sensitive.AiSensitiveWordService;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,9 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/ai/sensitive/word")
 public class AiSensitiveWordController extends BaseController
 {
-    private final IAiSensitiveWordService sensitiveWordService;
+    private final AiSensitiveWordService sensitiveWordService;
 
-    public AiSensitiveWordController(IAiSensitiveWordService sensitiveWordService)
+    public AiSensitiveWordController(AiSensitiveWordService sensitiveWordService)
     {
         this.sensitiveWordService = sensitiveWordService;
     }

@@ -2,7 +2,7 @@ package com.egg.commerce.system.service.ai.knowledge.impl;
 
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper;
-import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeVectorizationService;
+import com.egg.commerce.system.service.ai.knowledge.AiKnowledgeVectorizationService;
 import com.egg.commerce.system.service.ai.rag.AiDocumentChunk;
 import com.egg.commerce.system.service.ai.rag.AiDocumentParserService;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-public class AiKnowledgeVectorizationServiceImpl implements IAiKnowledgeVectorizationService
+public class AiKnowledgeVectorizationServiceImpl implements AiKnowledgeVectorizationService
 {
     private static final Logger log = LoggerFactory.getLogger(AiKnowledgeVectorizationServiceImpl.class);
 

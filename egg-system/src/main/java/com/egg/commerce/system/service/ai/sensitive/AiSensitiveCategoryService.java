@@ -3,7 +3,7 @@ package com.egg.commerce.system.service.ai.sensitive;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
 import java.util.List;
 
-public interface IAiSensitiveCategoryService
+public interface AiSensitiveCategoryService
 {
     AiSensitiveCategory selectAiSensitiveCategoryById(Long id);
 

@@ -6,7 +6,7 @@ import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.common.core.page.TableDataInfo;
 import com.egg.commerce.common.enums.BusinessType;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
-import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeDocumentService;
+import com.egg.commerce.system.service.ai.knowledge.AiKnowledgeDocumentService;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -22,9 +22,9 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping("/ai/knowledge")
 public class AiKnowledgeDocumentController extends BaseController
 {
-    private final IAiKnowledgeDocumentService knowledgeDocumentService;
+    private final AiKnowledgeDocumentService knowledgeDocumentService;
 
-    public AiKnowledgeDocumentController(IAiKnowledgeDocumentService knowledgeDocumentService)
+    public AiKnowledgeDocumentController(AiKnowledgeDocumentService knowledgeDocumentService)
     {
         this.knowledgeDocumentService = knowledgeDocumentService;
     }

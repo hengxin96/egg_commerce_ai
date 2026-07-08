@@ -11,7 +11,7 @@ import com.egg.commerce.system.mapper.ai.chat.AiChatMessageMapper;
 import com.egg.commerce.system.mapper.ai.chat.AiChatRetrievalSourceMapper;
 import com.egg.commerce.system.mapper.ai.chat.AiChatSessionMapper;
 import com.egg.commerce.system.service.ai.chat.AiChatModelService;
-import com.egg.commerce.system.service.ai.chat.IAiChatService;
+import com.egg.commerce.system.service.ai.chat.AiChatService;
 import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import java.math.BigDecimal;
@@ -28,7 +28,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class AiChatServiceImpl implements IAiChatService
+public class AiChatServiceImpl implements AiChatService
 {
     private static final String STATUS_ACTIVE = "active";
 

@@ -3,8 +3,8 @@ package com.egg.commerce.system.service.ai.knowledge.impl;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper;
-import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeDocumentService;
-import com.egg.commerce.system.service.ai.knowledge.IAiKnowledgeVectorizationService;
+import com.egg.commerce.system.service.ai.knowledge.AiKnowledgeDocumentService;
+import com.egg.commerce.system.service.ai.knowledge.AiKnowledgeVectorizationService;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
-public class AiKnowledgeDocumentServiceImpl implements IAiKnowledgeDocumentService
+public class AiKnowledgeDocumentServiceImpl implements AiKnowledgeDocumentService
 {
     private static final String STATUS_PROCESSING = "processing";
 
@@ -33,12 +33,12 @@ public class AiKnowledgeDocumentServiceImpl implements IAiKnowledgeDocumentServi
 
     private final AiVectorStoreService vectorStoreService;
 
-    private final IAiKnowledgeVectorizationService vectorizationService;
+    private final AiKnowledgeVectorizationService vectorizationService;
 
     public AiKnowledgeDocumentServiceImpl(AiKnowledgeDocumentMapper knowledgeDocumentMapper,
             AiObjectStorageService objectStorageService,
             AiVectorStoreService vectorStoreService,
-            IAiKnowledgeVectorizationService vectorizationService)
+            AiKnowledgeVectorizationService vectorizationService)
     {
         this.knowledgeDocumentMapper = knowledgeDocumentMapper;
         this.objectStorageService = objectStorageService;

@@ -218,7 +218,7 @@ class AiKnowledgeDocumentServiceImplTest
         }
     }
 
-    private static class FakeVectorization implements IAiKnowledgeVectorizationService
+    private static class FakeVectorization implements AiKnowledgeVectorizationService
     {
         private String startedDocumentId;
 

@@ -3,7 +3,7 @@ package com.egg.commerce.system.service.ai.sensitive;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord;
 import java.util.List;
 
-public interface IAiSensitiveWordService
+public interface AiSensitiveWordService
 {
     AiSensitiveWord selectAiSensitiveWordById(Long id);
 

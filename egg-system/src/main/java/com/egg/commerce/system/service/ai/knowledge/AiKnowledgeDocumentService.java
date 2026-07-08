@@ -4,7 +4,7 @@ import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
-public interface IAiKnowledgeDocumentService
+public interface AiKnowledgeDocumentService
 {
     List<AiKnowledgeDocument> selectAiKnowledgeDocumentList(AiKnowledgeDocument query);
 
