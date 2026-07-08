@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.chat.AiChatMessage;
 import com.egg.commerce.system.domain.ai.chat.AiChatResponse;
@@ -26,12 +27,16 @@ import org.junit.jupiter.api.Test;
 
 class AiChatServiceImplTest
 {
+    private static final String SESSION_ID = "11111111-1111-1111-1111-111111111111";
+
+    private static final String DOCUMENT_ID = "22222222-2222-2222-2222-222222222222";
+
     @Test
-    void sendMessageStoresUserAssistantAndSources()
+    void sendMessageStoresUserAssistantAndSourcesWithMetadata()
     {
         FakeChatSessionMapper sessionMapper = new FakeChatSessionMapper();
         AiChatSession session = new AiChatSession();
-        session.setId("session-1");
+        session.setId(SESSION_ID);
         session.setUserId(100L);
         session.setTitle("Chat");
         session.setMessageCount(0);
@@ -41,11 +46,11 @@ class AiChatServiceImplTest
         FakeVectorStore vectorStore = new FakeVectorStore();
         FakeChatModel chatModel = new FakeChatModel("建议突出平台规则。");
         AiChatServiceImpl service = new AiChatServiceImpl(sessionMapper, messageMapper, sourceMapper, vectorStore,
-                chatModel);
+                chatModel, new ObjectMapper());
 
-        AiChatResponse response = service.sendMessage("session-1", 100L, "主图怎么做？");
+        AiChatResponse response = service.sendMessage(SESSION_ID, 100L, "主图怎么做？");
 
-        assertEquals("session-1", response.getSessionId());
+        assertEquals(SESSION_ID, response.getSessionId());
         assertEquals("建议突出平台规则。", response.getAnswer());
         assertEquals(2, messageMapper.inserted.size());
         assertEquals("user", messageMapper.inserted.get(0).getRole());
@@ -53,8 +58,10 @@ class AiChatServiceImplTest
         assertTrue(Boolean.TRUE.equals(messageMapper.inserted.get(1).getRagUsed()));
         assertEquals(1, sourceMapper.inserted.size());
         assertEquals(messageMapper.inserted.get(1).getId(), sourceMapper.inserted.get(0).getMessageId());
-        assertEquals("doc-1", sourceMapper.inserted.get(0).getDocumentId());
-        assertEquals(2, sessionMapper.sessions.get("session-1").getMessageCount());
+        assertEquals(DOCUMENT_ID, sourceMapper.inserted.get(0).getDocumentId());
+        assertEquals("{\"channel\":\"marketplace\",\"ruleCode\":\"MAIN_IMAGE\"}",
+                sourceMapper.inserted.get(0).getMetadata());
+        assertEquals(2, sessionMapper.sessions.get(SESSION_ID).getMessageCount());
     }
 
     @Test
@@ -66,7 +73,7 @@ class AiChatServiceImplTest
         FakeVectorStore vectorStore = new FakeVectorStore();
         FakeChatModel chatModel = new FakeChatModel("unused");
         AiChatServiceImpl service = new AiChatServiceImpl(sessionMapper, messageMapper, sourceMapper, vectorStore,
-                chatModel);
+                chatModel, new ObjectMapper());
 
         ServiceException exception = assertThrows(ServiceException.class,
                 () -> service.sendMessage("missing-session", 100L, "主图怎么做？"));
@@ -74,6 +81,55 @@ class AiChatServiceImplTest
         assertEquals("Chat session does not exist", exception.getMessage());
         assertTrue(messageMapper.inserted.isEmpty());
         assertTrue(sourceMapper.inserted.isEmpty());
+    }
+
+    @Test
+    void selectMessagesAttachesPersistedSourcesForAssistantMessages()
+    {
+        FakeChatSessionMapper sessionMapper = new FakeChatSessionMapper();
+        AiChatSession session = new AiChatSession();
+        session.setId(SESSION_ID);
+        session.setUserId(100L);
+        sessionMapper.sessions.put(session.getId(), session);
+
+        FakeChatMessageMapper messageMapper = new FakeChatMessageMapper();
+        AiChatMessage userMessage = new AiChatMessage();
+        userMessage.setId("33333333-3333-3333-3333-333333333333");
+        userMessage.setSessionId(SESSION_ID);
+        userMessage.setUserId(100L);
+        userMessage.setRole("user");
+        userMessage.setContent("question");
+        userMessage.setRagUsed(Boolean.FALSE);
+        userMessage.setCreatedAt(new Date());
+        messageMapper.messagesBySession.add(userMessage);
+
+        AiChatMessage assistantMessage = new AiChatMessage();
+        assistantMessage.setId("44444444-4444-4444-4444-444444444444");
+        assistantMessage.setSessionId(SESSION_ID);
+        assistantMessage.setUserId(100L);
+        assistantMessage.setRole("assistant");
+        assistantMessage.setContent("answer");
+        assistantMessage.setRagUsed(Boolean.TRUE);
+        assistantMessage.setCreatedAt(new Date());
+        messageMapper.messagesBySession.add(assistantMessage);
+
+        FakeSourceMapper sourceMapper = new FakeSourceMapper();
+        AiChatRetrievalSource source = new AiChatRetrievalSource();
+        source.setId("55555555-5555-5555-5555-555555555555");
+        source.setMessageId(assistantMessage.getId());
+        source.setDocumentId(DOCUMENT_ID);
+        source.setMetadata("{\"channel\":\"marketplace\"}");
+        sourceMapper.sourcesByMessageId.put(assistantMessage.getId(), List.of(source));
+
+        AiChatServiceImpl service = new AiChatServiceImpl(sessionMapper, messageMapper, sourceMapper,
+                new FakeVectorStore(), new FakeChatModel("unused"), new ObjectMapper());
+
+        List<AiChatMessage> messages = service.selectMessages(SESSION_ID, 100L);
+
+        assertEquals(2, messages.size());
+        assertEquals(0, messages.get(0).getSources().size());
+        assertEquals(1, messages.get(1).getSources().size());
+        assertEquals("{\"channel\":\"marketplace\"}", messages.get(1).getSources().get(0).getMetadata());
     }
 
     private static class FakeChatSessionMapper implements AiChatSessionMapper
@@ -119,10 +175,12 @@ class AiChatServiceImplTest
     {
         private final List<AiChatMessage> inserted = new ArrayList<>();
 
+        private final List<AiChatMessage> messagesBySession = new ArrayList<>();
+
         @Override
         public List<AiChatMessage> selectAiChatMessageListBySessionId(String sessionId)
         {
-            return Collections.emptyList();
+            return messagesBySession;
         }
 
         @Override
@@ -137,10 +195,12 @@ class AiChatServiceImplTest
     {
         private final List<AiChatRetrievalSource> inserted = new ArrayList<>();
 
+        private final Map<String, List<AiChatRetrievalSource>> sourcesByMessageId = new LinkedHashMap<>();
+
         @Override
         public List<AiChatRetrievalSource> selectAiChatRetrievalSourceListByMessageId(String messageId)
         {
-            return Collections.emptyList();
+            return sourcesByMessageId.getOrDefault(messageId, Collections.emptyList());
         }
 
         @Override
@@ -163,11 +223,15 @@ class AiChatServiceImplTest
         public List<AiVectorRecord> search(String query, int topK, double minScore)
         {
             AiVectorRecord record = new AiVectorRecord();
-            record.setDocumentId("doc-1");
+            record.setDocumentId(DOCUMENT_ID);
             record.setChunkIndex(0);
             record.setSourceTitle("平台规则");
             record.setContent("主图需要突出主体并避免违规承诺。");
             record.setScore(0.91D);
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("channel", "marketplace");
+            metadata.put("ruleCode", "MAIN_IMAGE");
+            record.setMetadata(metadata);
             return List.of(record);
         }
 

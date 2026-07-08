@@ -12,6 +12,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="chunkIndex" column="chunk_index"/>
         <result property="sourceTitle" column="source_title"/>
         <result property="snippet" column="snippet"/>
+        <result property="metadata" column="metadata"/>
         <result property="score" column="score"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
@@ -25,6 +26,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                chunk_index,
                source_title,
                snippet,
+               metadata::text as metadata,
                score,
                created_at
         from ai_chat_retrieval_sources
@@ -42,6 +44,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             chunk_index,
             source_title,
             snippet,
+            metadata,
             score,
             created_at
         ) values (
@@ -52,6 +55,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{chunkIndex},
             #{sourceTitle},
             #{snippet},
+            cast(#{metadata} as jsonb),
             #{score},
             #{createdAt}
         )

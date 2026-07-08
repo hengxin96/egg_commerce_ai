@@ -77,9 +77,13 @@ CREATE TABLE IF NOT EXISTS ai_chat_retrieval_sources (
     chunk_index integer,
     source_title varchar(255),
     snippet text,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     score numeric(10, 6),
     created_at timestamp without time zone NOT NULL DEFAULT now()
 );
+
+ALTER TABLE ai_chat_retrieval_sources
+    ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_knowledge_documents_object_key
     ON ai_knowledge_documents(oss_bucket, oss_object_key);

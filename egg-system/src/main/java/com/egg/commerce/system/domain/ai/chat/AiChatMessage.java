@@ -1,7 +1,9 @@
 package com.egg.commerce.system.domain.ai.chat;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 public class AiChatMessage
 {
@@ -20,6 +22,8 @@ public class AiChatMessage
     private String promptVersion;
 
     private Boolean ragUsed;
+
+    private List<AiChatRetrievalSource> sources = new ArrayList<>();
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date createdAt;
@@ -102,6 +106,16 @@ public class AiChatMessage
     public void setRagUsed(Boolean ragUsed)
     {
         this.ragUsed = ragUsed;
+    }
+
+    public List<AiChatRetrievalSource> getSources()
+    {
+        return sources;
+    }
+
+    public void setSources(List<AiChatRetrievalSource> sources)
+    {
+        this.sources = sources == null ? new ArrayList<>() : new ArrayList<>(sources);
     }
 
     public Date getCreatedAt()

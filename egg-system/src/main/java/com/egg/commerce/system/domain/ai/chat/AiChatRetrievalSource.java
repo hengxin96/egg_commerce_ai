@@ -20,6 +20,8 @@ public class AiChatRetrievalSource
 
     private String snippet;
 
+    private String metadata;
+
     private BigDecimal score;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -93,6 +95,16 @@ public class AiChatRetrievalSource
     public void setSnippet(String snippet)
     {
         this.snippet = snippet;
+    }
+
+    public String getMetadata()
+    {
+        return metadata;
+    }
+
+    public void setMetadata(String metadata)
+    {
+        this.metadata = metadata;
     }
 
     public BigDecimal getScore()

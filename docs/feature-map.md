@@ -159,6 +159,11 @@ Backend planned paths:
 - Knowledge base domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/knowledge`
 - Coze integration: `egg-system/src/main/java/com/egg/commerce/system/service/ai/coze`
 
+Persistence note:
+
+- Chat messages are stored in `ai_chat_messages`.
+- Persisted retrieval sources, including replayable source metadata for history responses, are stored in `ai_chat_retrieval_sources`.
+
 Frontend planned paths:
 
 - Chat page: `egg-user-web/src/pages/chat`

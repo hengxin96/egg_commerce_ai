@@ -270,6 +270,35 @@ Notes:
 
 ## 2026-07-09
 
+### Fixed Persisted RAG Sources In Chat History
+
+Author: Codex
+
+What changed:
+
+- Updated AI chat history responses so assistant messages can return their persisted retrieval sources.
+- Added retrieval-source metadata persistence so vector record metadata is stored and replayed from chat history.
+- Expanded the Task 7 chat service test coverage for message history source loading and metadata storage.
+
+Why:
+
+- Chat history needs to expose the same traceable RAG evidence that was stored during the original assistant reply.
+- Retrieval metadata should not be lost between vector search and persisted source records.
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/chat`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/chat/impl/AiChatServiceImpl.java`
+- `egg-system/src/main/resources/mapper/ai/chat/AiChatRetrievalSourceMapper.xml`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/chat/AiChatServiceImplTest.java`
+- `sql/ai_knowledge_sensitive_rag.sql`
+
+Notes:
+
+- This is a backend chat persistence fix only. No billing, tenant, team, A2A, or video scope was added.
+
+## 2026-07-09
+
 ### Added AI Sensitive Category And Word Backend CRUD
 
 Author: Codex

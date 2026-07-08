@@ -1,5 +1,7 @@
 package com.egg.commerce.system.service.ai.chat.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.chat.AiChatMessage;
 import com.egg.commerce.system.domain.ai.chat.AiChatResponse;
@@ -14,10 +16,13 @@ import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
@@ -40,9 +45,26 @@ public class AiChatServiceImpl implements IAiChatService
 
     private final AiChatModelService chatModelService;
 
+    private final ObjectMapper objectMapper;
+
     private final int topK;
 
     private final double minScore;
+
+    @Autowired
+    public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
+            AiChatMessageMapper chatMessageMapper,
+            AiChatRetrievalSourceMapper retrievalSourceMapper,
+            AiVectorStoreService vectorStoreService,
+            AiChatModelService chatModelService,
+            ObjectMapper objectMapper,
+            Environment environment)
+    {
+        this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
+                objectMapper,
+                environment.getProperty("egg.ai.rag.top-k", Integer.class, 6),
+                environment.getProperty("egg.ai.rag.min-score", Double.class, 0.62D));
+    }
 
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
             AiChatMessageMapper chatMessageMapper,
@@ -52,8 +74,18 @@ public class AiChatServiceImpl implements IAiChatService
             Environment environment)
     {
         this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
-                environment.getProperty("egg.ai.rag.top-k", Integer.class, 6),
-                environment.getProperty("egg.ai.rag.min-score", Double.class, 0.62D));
+                new ObjectMapper(), environment);
+    }
+
+    public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
+            AiChatMessageMapper chatMessageMapper,
+            AiChatRetrievalSourceMapper retrievalSourceMapper,
+            AiVectorStoreService vectorStoreService,
+            AiChatModelService chatModelService,
+            ObjectMapper objectMapper)
+    {
+        this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
+                objectMapper, 6, 0.62D);
     }
 
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
@@ -62,8 +94,8 @@ public class AiChatServiceImpl implements IAiChatService
             AiVectorStoreService vectorStoreService,
             AiChatModelService chatModelService)
     {
-        this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService, 6,
-                0.62D);
+        this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
+                new ObjectMapper(), 6, 0.62D);
     }
 
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
@@ -71,6 +103,7 @@ public class AiChatServiceImpl implements IAiChatService
             AiChatRetrievalSourceMapper retrievalSourceMapper,
             AiVectorStoreService vectorStoreService,
             AiChatModelService chatModelService,
+            ObjectMapper objectMapper,
             int topK,
             double minScore)
     {
@@ -79,6 +112,7 @@ public class AiChatServiceImpl implements IAiChatService
         this.retrievalSourceMapper = retrievalSourceMapper;
         this.vectorStoreService = vectorStoreService;
         this.chatModelService = chatModelService;
+        this.objectMapper = objectMapper;
         this.topK = topK;
         this.minScore = minScore;
     }
@@ -111,7 +145,9 @@ public class AiChatServiceImpl implements IAiChatService
     public List<AiChatMessage> selectMessages(String sessionId, Long userId)
     {
         requireOwnedSession(sessionId, userId);
-        return chatMessageMapper.selectAiChatMessageListBySessionId(sessionId);
+        List<AiChatMessage> messages = chatMessageMapper.selectAiChatMessageListBySessionId(sessionId);
+        attachSources(messages);
+        return messages;
     }
 
     @Override
@@ -201,12 +237,50 @@ public class AiChatServiceImpl implements IAiChatService
             source.setChunkIndex(record.getChunkIndex());
             source.setSourceTitle(record.getSourceTitle());
             source.setSnippet(record.getContent());
+            source.setMetadata(writeMetadata(record.getMetadata()));
             source.setScore(record.getScore() == null ? null : BigDecimal.valueOf(record.getScore()));
             source.setCreatedAt(now);
             retrievalSourceMapper.insertAiChatRetrievalSource(source);
             sources.add(source);
         }
         return sources;
+    }
+
+    // History responses should reuse the persisted source rows so the API does not depend on caller-provided source data.
+    private void attachSources(List<AiChatMessage> messages)
+    {
+        if (messages == null)
+        {
+            return;
+        }
+        for (AiChatMessage message : messages)
+        {
+            if (message == null)
+            {
+                continue;
+            }
+            if (Boolean.TRUE.equals(message.getRagUsed()))
+            {
+                message.setSources(retrievalSourceMapper.selectAiChatRetrievalSourceListByMessageId(message.getId()));
+            }
+            else
+            {
+                message.setSources(Collections.emptyList());
+            }
+        }
+    }
+
+    private String writeMetadata(Map<String, Object> metadata)
+    {
+        try
+        {
+            return objectMapper.writeValueAsString(metadata == null || metadata.isEmpty() ? Collections.emptyMap()
+                    : metadata);
+        }
+        catch (JsonProcessingException ex)
+        {
+            throw new ServiceException("Failed to serialize retrieval source metadata");
+        }
     }
 
     private void updateSessionAfterReply(AiChatSession session, String answer, Date now)
