@@ -1,115 +1,88 @@
-<p align="center">
-	<img alt="logo" src="https://oscimg.oschina.net/oscnet/up-d3d0a9303e11d522a06cd263f3079027715.png">
-</p>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Egg v3.9.2</h1>
-<h4 align="center">基于SpringBoot+Vue前后端分离的Java快速开发框架</h4>
-<p align="center">
-	<a href="https://gitee.com/y_project/Egg-Vue/stargazers"><img src="https://gitee.com/y_project/Egg-Vue/badge/star.svg?theme=dark"></a>
-	<a href="https://gitee.com/y_project/Egg-Vue"><img src="https://img.shields.io/badge/Egg-v3.9.2-brightgreen.svg"></a>
-	<a href="https://gitee.com/y_project/Egg-Vue/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
-</p>
+# AI 电商视觉内容生成工作台
+
+AI 电商视觉内容生成工作台是一套面向电商商家、运营人员和内容团队的 AI 内容生产系统。项目以 Picset 风格的前台创作体验为目标，围绕商品图生成、风格复刻、批量优化、智能问答、RAG 知识检索、素材沉淀和后台配置管理构建第一版能力。
+
+项目基于 Egg 前后端分离框架改造而来，但产品方向已经从通用后台系统调整为 AI 电商视觉内容平台。后台管理端保留 Egg 原有管理风格，用于配置和运维；前台用户端独立设计，用于承载商品内容生成工作流。
 
 ## 平台简介
 
-Egg是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
+本平台的核心目标是让用户围绕一个商品完成从“上传资料”到“生成可用电商素材”的完整流程。
 
-* 前端采用Vue、Element UI。
-* 后端采用Spring Boot、Spring Security、Redis & Jwt。
-* 权限认证使用Jwt，支持多终端认证系统。
-* 支持加载动态权限菜单，多方式轻松权限控制。
-* 高效率开发，使用代码生成器可以一键生成前后端代码。
-* 阿里云折扣场：[点我进入](http://aly.egg.vip)，腾讯云秒杀场：[点我进入](http://txy.egg.vip)&nbsp;&nbsp;
+主要设计方向：
 
-# 版本分支
+- 以前台用户工作台为主要使用入口，提供接近 Picset 的图片生成和素材管理体验。
+- 以真实图片生成为第一优先级，不做只有提示词或方案文本的空转功能。
+- 保留后台管理系统，用于配置模型、提示词、RAG 知识库、审核规则、系统参数和任务日志。
+- 第一阶段必须包含智能体聊天能力，用户可以咨询电商运营、商品内容、平台规则、视觉策略等问题。
+- 智能体聊天支持从 RAG 知识库检索内容，回答时可结合商品上下文和平台规则。
+- 生成的图片、提示词、模型参数、任务记录、审核结果和素材版本都需要可追溯、可复用。
+- 第一阶段暂不包含积分、计费、支付、租户、团队空间和生产级视频生成功能。
 
-Egg-Vue 后端项目提供 Spring Boot 2.x / 3.x / 4.x 多版本分支的并行维护。
+## 技术架构
 
-| 名称              | 说明                      | 地址                                                    |
-| :---------------- | :------------------------ | :------------------------------------------------------ |
-| master 默认分支   | Spring Boot 4.x (JDK 17+) | https://gitee.com/y_project/Egg-Vue                   |
-| springboot3 分支  | Spring Boot 3.x (JDK 17+) | https://gitee.com/y_project/Egg-Vue/tree/springboot3  |
-| springboot2 分支  | Spring Boot 2.x (JDK 8+)  | https://gitee.com/y_project/Egg-Vue/tree/springboot2  |  
-
-Egg-Vue 前端项目提供 Vue 2.x / 3.x / JavaScript TypeScript 版本均可混用搭配
-
-| 项目名称      | **Egg-Vue** | **Egg-Vue3** | **Egg-Vue3-TypeScript**   |
-| :---          | :---          | :---           | :---                        |
-| **前端框架**  | Vue 2        | Vue 3          | Vue 3                       |
-| **脚本语言**  | JavaScript   | JavaScript     | TypeScript                  |
-| **构建工具**  | Vue CLI      | Vite           | Vite                        |
-| **UI 组件库** | Element UI   | Element Plus   | Element Plus                |
-| **状态管理**  | Vuex         | Pinia          | Pinia                       |
-| **路由管理**  | Vue Router 3 | Vue Router 4   | Vue Router 4                |
-| **核心特点**  | 1. 技术栈经典稳定<br>2. 社区资料丰富<br>3. 当前维护重心已转移 | 1. 现代前端技术栈<br>2. 开发体验与性能更优<br>3. 官方主推的活跃版本 | 1. 类型加持，减少沟通成本<br>2. 开发时有提示，效率更高<br>3. 多人协作企业级开发项目 |
-| **仓库地址**  | [Egg-Vue](https://gitee.com/y_project/Egg-Vue) | [Egg-Vue3](https://gitcode.com/yangzongzhuan/Egg-Vue3) | [Egg-Vue3-TypeScript](https://gitcode.com/yangzongzhuan/Egg-Vue3/tree/typescript) |
+| 层级 | 技术/模块 | 说明 |
+|---|---|---|
+| 后端基础 | Java 17、Spring Boot 4.0.6 | 提供核心业务接口、认证、任务、配置和 AI 调用入口。 |
+| 后端模块 | `egg-admin`、`egg-system`、`egg-framework`、`egg-common`、`egg-quartz`、`egg-generator` | 沿用 Egg 模块化结构，第一阶段以模块化单体为主。 |
+| 权限认证 | Spring Security、JWT、Redis | 后台继续使用 Egg 权限体系；前台用户第一阶段平权使用。 |
+| 数据持久化 | PostgreSQL、MyBatis、PageHelper | 保存商品、素材、任务、聊天、RAG、模型配置和系统管理数据。 |
+| 缓存/任务状态 | Redis | 用于登录会话、异步任务进度、防重复提交、限流和短期上下文。 |
+| 文件存储 | MinIO | 存储原始商品图、参考图、生成图、编辑图和导出文件。 |
+| 后台前端 | Vue 2、Element UI、Vue Router 3、Vuex | `egg-ui` 保持 Egg 后台风格，用于系统管理和 AI 配置。 |
+| 前台前端 | Vue 3、Vite、Element Plus、Vue Router 4 | `egg-user-web` 承载 Picset 风格的用户创作工作台。 |
+| AI 能力 | 模型网关、视觉模型、图片生成模型、Embedding、Coze 或同类智能体 | 后端统一封装模型调用，前端不直接暴露模型密钥。 |
+| RAG 能力 | 知识库、向量检索、来源记录 | 用于电商规则、品牌规则、审核规则、运营知识和商品资料问答。 |
+| 部署依赖 | PostgreSQL、Redis、MinIO、后端服务、后台前端、前台前端 | 第一阶段优先保持部署简单，暂不做微服务拆分。 |
 
 ## 内置功能
 
-1.  用户管理：用户是系统操作者，该功能主要完成系统用户配置。
-2.  部门管理：配置系统组织机构（公司、部门、小组），树结构展现支持数据权限。
-3.  岗位管理：配置系统用户所属担任职务。
-4.  菜单管理：配置系统菜单，操作权限，按钮权限标识等。
-5.  角色管理：角色菜单权限分配、设置角色按机构进行数据范围权限划分。
-6.  字典管理：对系统中经常使用的一些较为固定的数据进行维护。
-7.  参数管理：对系统动态配置常用参数。
-8.  通知公告：系统通知公告信息发布维护。
-9.  操作日志：系统正常操作日志记录和查询；系统异常信息日志记录和查询。
-10. 登录日志：系统登录日志记录查询包含登录异常。
-11. 在线用户：当前系统中活跃用户状态监控。
-12. 定时任务：在线（添加、修改、删除)任务调度包含执行结果日志。
-13. 代码生成：前后端代码的生成（java、html、xml、sql）支持CRUD下载 。
-14. 系统接口：根据业务代码自动生成相关的api接口文档。
-15. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
-16. 缓存监控：对系统的缓存信息查询，命令统计等。
-17. 在线构建器：拖动表单元素生成相应的HTML代码。
-18. 连接池监视：监视当前系统数据库连接池状态，可进行分析SQL找出系统性能瓶颈。
+### 前台用户工作台
 
-## 在线体验
+1. 商品库：维护商品资料、商品图片、类目、目标平台、卖点和补充说明。
+2. 商品图片上传：上传原始商品图、参考图和后续生成所需素材。
+3. 全品类商品图生成：生成商品主图、场景图、卖点图和营销图。
+4. 详情页图片组生成：围绕商品卖点生成详情页所需的多张图片素材。
+5. 风格复刻：根据参考图提取构图、色彩、光线和视觉风格，并迁移到目标商品上。
+6. 批量优化：对多张商品图进行基础美化、背景优化、白底处理和质量增强。
+7. 素材库：保存原图、生成图、编辑图、最终选中图和导出文件。
+8. 任务中心：查看 AI 生成任务的进度、结果、失败原因和重试入口。
+9. 智能体聊天：向智能体咨询电商运营、商品内容、视觉方案、平台规则和合规风险。
+10. RAG 知识问答：智能体可从知识库检索平台规则、品牌规则、审核规则和运营资料。
+11. 文案辅助：围绕商品生成标题、卖点、详情页说明和素材配套文案。
+12. 结果审核：检查生成内容是否存在夸大宣传、商品失真、平台违规等风险。
+13. 下载与导出：下载图片素材，后续支持按商品导出内容包。
 
-- admin/admin123  
-- 陆陆续续收到一些打赏，为了更好的体验已用于演示服务器升级。谢谢各位小伙伴。
+### 后台管理端
 
-演示地址：http://vue.egg.vip  
-文档地址：http://doc.egg.vip
+1. 用户管理：维护系统用户、登录状态和基础账号信息。
+2. 角色与菜单：沿用 Egg 权限体系，管理后台菜单、按钮权限和角色授权。
+3. 系统配置：维护系统参数、字典、公告、日志、缓存和定时任务。
+4. 模型配置：配置文本模型、视觉模型、图片生成模型、Embedding 模型和调用参数。
+5. 提示词模板：维护商品分析、图片生成、风格复刻、审核和文案生成的提示词版本。
+6. RAG 知识库：管理平台规则、品牌规则、审核规则、运营知识和商品资料。
+7. 审核规则：配置电商内容合规、商品真实性和平台风险规则。
+8. 任务日志：查看 AI 任务执行过程、失败原因、重试记录和结果入口。
+9. 模型调用日志：记录模型名称、调用参数、任务 ID、用户 ID、耗时和异常信息。
 
-## 演示图
+## 项目目录
 
-<table>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/cd1f90be5f2684f4560c9519c0f2a232ee8.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/1cbcf0e6f257c7d3a063c0e3f2ff989e4b3.jpg"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8074972883b5ba0622e13246738ebba237a.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-9f88719cdfca9af2e58b352a20e23d43b12.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-39bf2584ec3a529b0d5a3b70d15c9b37646.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-936ec82d1f4872e1bc980927654b6007307.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-b2d62ceb95d2dd9b3fbe157bb70d26001e9.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d67451d308b7a79ad6819723396f7c3d77a.png"/></td>
-    </tr>	 
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/5e8c387724954459291aafd5eb52b456f53.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/644e78da53c2e92a95dfda4f76e6d117c4b.jpg"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8370a0d02977eebf6dbf854c8450293c937.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-49003ed83f60f633e7153609a53a2b644f7.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d4fe726319ece268d4746602c39cffc0621.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-c195234bbcd30be6927f037a6755e6ab69c.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/b6115bc8c31de52951982e509930b20684a.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-5e4daac0bb59612c5038448acbcef235e3a.png"/></td>
-    </tr>
-</table>
+| 目录 | 说明 |
+|---|---|
+| `egg-admin` | Spring Boot Web 入口和后端 Controller。 |
+| `egg-system` | 系统业务实体、Mapper、Service，以及后续 AI 业务核心代码。 |
+| `egg-framework` | 安全、Web、Redis、数据源、文件上传等基础框架能力。 |
+| `egg-common` | 通用工具、常量、注解、异常和共享类型。 |
+| `egg-quartz` | 定时任务模块。 |
+| `egg-generator` | Egg 原有代码生成模块。 |
+| `egg-ui` | 后台管理前端，保持 Egg 管理系统风格。 |
+| `egg-user-web` | 前台用户工作台，承载 Picset 风格的 AI 电商内容生成体验。 |
+| `sql` | 数据库脚本和后续业务表结构。 |
+| `docker`、`compose.postgres.yml` | 本地和部署环境依赖配置。 |
+| `docs` | 项目宪法、改动记录、功能地图和需求相关文档。 |
 
+## 项目约束
 
-## Egg前后端分离交流群
-
-QQ群： [![加入QQ群](https://img.shields.io/badge/已满-937441-blue.svg)](https://jq.qq.com/?_wv=1027&k=5bVB1og) [![加入QQ群](https://img.shields.io/badge/已满-887144332-blue.svg)](https://jq.qq.com/?_wv=1027&k=5eiA4DH) [![加入QQ群](https://img.shields.io/badge/已满-180251782-blue.svg)](https://jq.qq.com/?_wv=1027&k=5AxMKlC) [![加入QQ群](https://img.shields.io/badge/已满-104180207-blue.svg)](https://jq.qq.com/?_wv=1027&k=51G72yr) [![加入QQ群](https://img.shields.io/badge/已满-186866453-blue.svg)](https://jq.qq.com/?_wv=1027&k=VvjN2nvu) [![加入QQ群](https://img.shields.io/badge/已满-201396349-blue.svg)](https://jq.qq.com/?_wv=1027&k=5vYAqA05) [![加入QQ群](https://img.shields.io/badge/已满-101456076-blue.svg)](https://jq.qq.com/?_wv=1027&k=kOIINEb5) [![加入QQ群](https://img.shields.io/badge/已满-101539465-blue.svg)](https://jq.qq.com/?_wv=1027&k=UKtX5jhs) [![加入QQ群](https://img.shields.io/badge/已满-264312783-blue.svg)](https://jq.qq.com/?_wv=1027&k=EI9an8lJ) [![加入QQ群](https://img.shields.io/badge/已满-167385320-blue.svg)](https://jq.qq.com/?_wv=1027&k=SWCtLnMz) [![加入QQ群](https://img.shields.io/badge/已满-104748341-blue.svg)](https://jq.qq.com/?_wv=1027&k=96Dkdq0k) [![加入QQ群](https://img.shields.io/badge/已满-160110482-blue.svg)](https://jq.qq.com/?_wv=1027&k=0fsNiYZt) [![加入QQ群](https://img.shields.io/badge/已满-170801498-blue.svg)](https://jq.qq.com/?_wv=1027&k=7xw4xUG1) [![加入QQ群](https://img.shields.io/badge/已满-108482800-blue.svg)](https://jq.qq.com/?_wv=1027&k=eCx8eyoJ) [![加入QQ群](https://img.shields.io/badge/已满-101046199-blue.svg)](https://jq.qq.com/?_wv=1027&k=SpyH2875) [![加入QQ群](https://img.shields.io/badge/已满-136919097-blue.svg)](https://jq.qq.com/?_wv=1027&k=tKEt51dz) [![加入QQ群](https://img.shields.io/badge/已满-143961921-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=0vBbSb0ztbBgVtn3kJS-Q4HUNYwip89G&authKey=8irq5PhutrZmWIvsUsklBxhj57l%2F1nOZqjzigkXZVoZE451GG4JHPOqW7AW6cf0T&noverify=0&group_code=143961921) [![加入QQ群](https://img.shields.io/badge/已满-174951577-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=ZFAPAbp09S2ltvwrJzp7wGlbopsc0rwi&authKey=HB2cxpxP2yspk%2Bo3WKTBfktRCccVkU26cgi5B16u0KcAYrVu7sBaE7XSEqmMdFQp&noverify=0&group_code=174951577) [![加入QQ群](https://img.shields.io/badge/已满-161281055-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Fn2aF5IHpwsy8j6VlalNJK6qbwFLFHat&authKey=uyIT%2B97x2AXj3odyXpsSpVaPMC%2Bidw0LxG5MAtEqlrcBcWJUA%2FeS43rsF1Tg7IRJ&noverify=0&group_code=161281055) [![加入QQ群](https://img.shields.io/badge/已满-138988063-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XIzkm_mV2xTsUtFxo63bmicYoDBA6Ifm&authKey=dDW%2F4qsmw3x9govoZY9w%2FoWAoC4wbHqGal%2BbqLzoS6VBarU8EBptIgPKN%2FviyC8j&noverify=0&group_code=138988063) [![加入QQ群](https://img.shields.io/badge/已满-151450850-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=DkugnCg68PevlycJSKSwjhFqfIgrWWwR&authKey=pR1Pa5lPIeGF%2FFtIk6d%2FGB5qFi0EdvyErtpQXULzo03zbhopBHLWcuqdpwY241R%2F&noverify=0&group_code=151450850) [![加入QQ群](https://img.shields.io/badge/已满-224622315-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=F58bgRa-Dp-rsQJThiJqIYv8t4-lWfXh&authKey=UmUs4CVG5OPA1whvsa4uSespOvyd8%2FAr9olEGaWAfdLmfKQk%2FVBp2YU3u2xXXt76&noverify=0&group_code=224622315) [![加入QQ群](https://img.shields.io/badge/已满-287842588-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Nxb2EQ5qozWa218Wbs7zgBnjLSNk_tVT&authKey=obBKXj6SBKgrFTJZx0AqQnIYbNOvBB2kmgwWvGhzxR67RoRr84%2Bus5OadzMcdJl5&noverify=0&group_code=287842588) [![加入QQ群](https://img.shields.io/badge/已满-187944233-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=numtK1M_I4eVd2Gvg8qtbuL8JgX42qNh&authKey=giV9XWMaFZTY%2FqPlmWbkB9g3fi0Ev5CwEtT9Tgei0oUlFFCQLDp4ozWRiVIzubIm&noverify=0&group_code=187944233) [![加入QQ群](https://img.shields.io/badge/已满-228578329-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=G6r5KGCaa3pqdbUSXNIgYloyb8e0_L0D&authKey=4w8tF1eGW7%2FedWn%2FHAypQksdrML%2BDHolQSx7094Agm7Luakj9EbfPnSTxSi2T1LQ&noverify=0&group_code=228578329) [![加入QQ群](https://img.shields.io/badge/已满-191164766-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=GsOo-OLz53J8y_9TPoO6XXSGNRTgbFxA&authKey=R7Uy%2Feq%2BZsoKNqHvRKhiXpypW7DAogoWapOawUGHokJSBIBIre2%2FoiAZeZBSLuBc&noverify=0&group_code=191164766) [![加入QQ群](https://img.shields.io/badge/已满-174569686-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=PmYavuzsOthVqfdAPbo4uAeIbu7Ttjgc&authKey=p52l8%2FXa4PS1JcEmS3VccKSwOPJUZ1ZfQ69MEKzbrooNUljRtlKjvsXf04bxNp3G&noverify=0&group_code=174569686) [![加入QQ群](https://img.shields.io/badge/127358632-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=M9y5NjAl44lAL_Vh2crmEehZU_PMU6KS&authKey=ZSDz8hEREWSaPuxQV3gEwqGIaGjfRNnkB4rJjf0IvXhrSUGSGwQFmBA%2Boe8HFxyl&noverify=0&group_code=127358632) 点击按钮入群。
+- 项目宪法见 `docs/project-constitution.md`，后续开发必须优先遵守。
+- 每次重要代码或文档修改，需要在 `docs/change-log.md` 中记录。
+- 新增或移动功能代码时，需要同步维护 `docs/feature-map.md`。
+- 新代码要添加简洁有用的注释，说明业务目的、流程意图或关键技术决策。

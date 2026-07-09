@@ -5,6 +5,18 @@ import Layout from '@/layout/index'
 import ParentView from '@/components/ParentView'
 import InnerLink from '@/layout/components/InnerLink'
 
+const removedRouteComponents = [
+  'system/dept/index',
+  'system/post/index',
+  'system/notice/index'
+]
+const removedRoutePaths = [
+  'http://egg.vip',
+  'dept',
+  'post',
+  'notice'
+]
+
 const permission = {
   state: {
     routes: [],
@@ -36,8 +48,8 @@ const permission = {
         getRouters().then(res => {
           const sdata = JSON.parse(JSON.stringify(res.data))
           const rdata = JSON.parse(JSON.stringify(res.data))
-          const sidebarRoutes = filterAsyncRouter(sdata)
-          const rewriteRoutes = filterAsyncRouter(rdata, false, true)
+          const sidebarRoutes = filterAsyncRouter(filterRemovedRoutes(sdata))
+          const rewriteRoutes = filterAsyncRouter(filterRemovedRoutes(rdata), false, true)
           const asyncRoutes = filterDynamicRoutes(dynamicRoutes)
           rewriteRoutes.push({ path: '*', redirect: '/404', hidden: true })
           router.addRoutes(asyncRoutes)
@@ -50,6 +62,19 @@ const permission = {
       })
     }
   }
+}
+
+function filterRemovedRoutes(routes) {
+  return routes.filter(route => {
+    const isRemoved = removedRouteComponents.includes(route.component) || removedRoutePaths.includes(route.path)
+    if (isRemoved) {
+      return false
+    }
+    if (route.children && route.children.length) {
+      route.children = filterRemovedRoutes(route.children)
+    }
+    return true
+  })
 }
 
 // 遍历后台传来的路由字符串，转换为组件对象
@@ -110,12 +135,19 @@ export function filterDynamicRoutes(routes) {
   return res
 }
 
+function normalizeViewPath(view) {
+  // Menu records keep component paths without an extension; webpack's dev
+  // context resolves dynamic routes more reliably when the .vue file is explicit.
+  return view.endsWith('.vue') ? view : `${view}.vue`
+}
+
 export const loadView = (view) => {
+  const normalizedView = normalizeViewPath(view)
   if (process.env.NODE_ENV === 'development') {
-    return (resolve) => require([`@/views/${view}`], resolve)
+    return (resolve) => require([`@/views/${normalizedView}`], resolve)
   } else {
     // 使用 import 实现生产环境的路由懒加载
-    return () => import(`@/views/${view}`)
+    return () => import(`@/views/${normalizedView}`)
   }
 }
 
