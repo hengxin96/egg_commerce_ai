@@ -355,7 +355,7 @@ git commit -m "docs: update ai storage direction"
 In root `pom.xml`, add properties:
 
 ```xml
-<spring-ai.version>1.0.0</spring-ai.version>
+<spring-ai.version>2.0.0</spring-ai.version>
 <spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
 <aliyun-sdk-oss.version>3.10.2</aliyun-sdk-oss.version>
 ```

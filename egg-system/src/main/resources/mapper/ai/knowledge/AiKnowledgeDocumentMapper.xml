@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper">
+
+    <resultMap id="AiKnowledgeDocumentResult" type="com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument">
+        <id property="id" column="id"/>
+        <result property="fileName" column="file_name"/>
+        <result property="fileExt" column="file_ext"/>
+        <result property="mimeType" column="mime_type"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="ossBucket" column="oss_bucket"/>
+        <result property="ossObjectKey" column="oss_object_key"/>
+        <result property="ossUrl" column="oss_url"/>
+        <result property="vectorStore" column="vector_store"/>
+        <result property="vectorCollection" column="vector_collection"/>
+        <result property="vectorIds" column="vector_ids"/>
+        <result property="chunkCount" column="chunk_count"/>
+        <result property="status" column="status"/>
+        <result property="failureReason" column="failure_reason"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="completedAt" column="completed_at"/>
+    </resultMap>
+
+    <sql id="selectAiKnowledgeDocumentVo">
+        select id,
+               file_name,
+               file_ext,
+               mime_type,
+               file_size,
+               oss_bucket,
+               oss_object_key,
+               oss_url,
+               vector_store,
+               vector_collection,
+               vector_ids::text as vector_ids,
+               chunk_count,
+               status,
+               failure_reason,
+               created_by,
+               created_at,
+               updated_at,
+               completed_at
+        from ai_knowledge_documents
+    </sql>
+
+    <select id="selectAiKnowledgeDocumentById" parameterType="String" resultMap="AiKnowledgeDocumentResult">
+        <include refid="selectAiKnowledgeDocumentVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectAiKnowledgeDocumentByIds" parameterType="String" resultMap="AiKnowledgeDocumentResult">
+        <include refid="selectAiKnowledgeDocumentVo"/>
+        where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <select id="selectAiKnowledgeDocumentList"
+            parameterType="com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument"
+            resultMap="AiKnowledgeDocumentResult">
+        <include refid="selectAiKnowledgeDocumentVo"/>
+        <where>
+            <if test="id != null and id != ''">
+                and id = #{id}
+            </if>
+            <if test="fileName != null and fileName != ''">
+                and file_name like concat('%', #{fileName}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="createdBy != null">
+                and created_by = #{createdBy}
+            </if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <insert id="insertAiKnowledgeDocument"
+            parameterType="com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument">
+        insert into ai_knowledge_documents (
+            id,
+            file_name,
+            file_ext,
+            mime_type,
+            file_size,
+            oss_bucket,
+            oss_object_key,
+            oss_url,
+            vector_store,
+            vector_collection,
+            vector_ids,
+            chunk_count,
+            status,
+            failure_reason,
+            created_by,
+            created_at,
+            updated_at,
+            completed_at
+        ) values (
+            #{id},
+            #{fileName},
+            #{fileExt},
+            #{mimeType},
+            #{fileSize},
+            #{ossBucket},
+            #{ossObjectKey},
+            #{ossUrl},
+            #{vectorStore},
+            #{vectorCollection},
+            cast(#{vectorIds} as jsonb),
+            #{chunkCount},
+            #{status},
+            #{failureReason},
+            #{createdBy},
+            #{createdAt},
+            #{updatedAt},
+            #{completedAt}
+        )
+    </insert>
+
+    <update id="updateAiKnowledgeDocument"
+            parameterType="com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument">
+        update ai_knowledge_documents
+        set file_name = #{fileName},
+            file_ext = #{fileExt},
+            mime_type = #{mimeType},
+            file_size = #{fileSize},
+            oss_bucket = #{ossBucket},
+            oss_object_key = #{ossObjectKey},
+            oss_url = #{ossUrl},
+            vector_store = #{vectorStore},
+            vector_collection = #{vectorCollection},
+            vector_ids = cast(#{vectorIds} as jsonb),
+            chunk_count = #{chunkCount},
+            status = #{status},
+            failure_reason = #{failureReason},
+            created_by = #{createdBy},
+            created_at = #{createdAt},
+            updated_at = #{updatedAt},
+            completed_at = #{completedAt}
+        where id = #{id}
+    </update>
+
+    <delete id="deleteAiKnowledgeDocumentByIds" parameterType="String">
+        delete from ai_knowledge_documents
+        where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>
