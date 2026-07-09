@@ -46,6 +46,7 @@ nbdist/
 .env
 .env.local
 .env.*.local
+.worktrees/
 
 !*/build/*.java
 !*/build/*.html
