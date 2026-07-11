@@ -1,34 +1,34 @@
-﻿<template>
+<template>
   <div class="page generator-workbench">
     <section class="generator-page-title">
       <span class="eyebrow-pill">
         <el-icon><MagicStick /></el-icon>
-        {{ eyebrow }}
+        {{ props.eyebrow }}
       </span>
-      <h1>{{ title }}</h1>
-      <p>{{ desc }}</p>
+      <h1>{{ props.title }}</h1>
+      <p>{{ props.desc }}</p>
     </section>
 
     <section class="process-steps" aria-label="生成流程">
-      <template v-for="(step, index) in steps" :key="step">
+      <template v-for="(step, index) in props.steps" :key="step">
         <span class="process-step" :class="{ 'is-active': index === 0, 'is-muted': index > 0 }">
           <strong>{{ index + 1 }}</strong>
           <span>{{ step }}</span>
         </span>
-        <span v-if="index < steps.length - 1" class="process-line"></span>
+        <span v-if="index < props.steps.length - 1" class="process-line"></span>
       </template>
     </section>
 
     <div class="generator-layout">
       <section class="generator-sidebar" aria-label="生成参数">
-        <div class="generator-panel upload-panel">
+        <div v-if="props.showUploadPanel" class="generator-panel upload-panel">
           <div class="panel-heading compact-heading">
             <span class="panel-icon">
               <el-icon><Picture /></el-icon>
             </span>
             <div>
               <h2>产品图</h2>
-              <p>{{ uploadLabel }}</p>
+              <p>{{ props.uploadLabel }}</p>
             </div>
             <span class="upload-count">{{ uploadedImages.length }}/{{ UPLOAD_LIMIT }}</span>
           </div>
@@ -82,7 +82,7 @@
         </div>
 
         <div class="generator-panel controls-panel">
-          <div class="asset-tabs" role="tablist" aria-label="生成类型">
+          <div v-if="props.showAssetTabs" class="asset-tabs" role="tablist" aria-label="生成类型">
             <button
               v-for="type in assetTypes"
               :key="type.label"
@@ -98,7 +98,7 @@
           </div>
 
           <div class="form-stack">
-            <label class="field-block">
+            <label class="field-block" :style="platformFieldStyle">
               <span>目标平台</span>
               <el-select v-model="form.platform" style="width:100%">
                 <el-option label="抖音" value="抖音" />
@@ -108,56 +108,77 @@
               </el-select>
             </label>
 
-            <label class="field-block">
-              <span>{{ form.assetType }}要求</span>
+            <label class="field-block" :style="promptFieldStyle">
+              <span>{{ promptFieldLabel }}</span>
               <div class="prompt-shell">
                 <el-input
                   v-model="form.prompt"
                   type="textarea"
                   :rows="5"
-                  placeholder="建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等"
+                  :placeholder="props.promptPlaceholder"
                 />
-                <button class="prompt-helper" type="button">
+                <button v-if="props.showPromptHelper" class="prompt-helper" type="button">
                   <el-icon><MagicStick /></el-icon>
                   AI 帮写
                 </button>
               </div>
             </label>
 
-            <label class="field-block">
-              <span>目标语言</span>
+            <label v-if="props.showProductInfoField" class="field-block" :style="productInfoFieldStyle">
+              <span>{{ props.productInfoLabel }}</span>
+              <div class="prompt-shell">
+                <el-input
+                  v-model="form.productInfo"
+                  type="textarea"
+                  :rows="5"
+                  :placeholder="props.productInfoPlaceholder"
+                />
+              </div>
+            </label>
+
+            <label class="field-block" :style="languageFieldStyle">
+              <span>{{ props.languageFieldLabel }}</span>
               <el-select v-model="form.language" style="width:100%">
-                <el-option label="中文(简体)" value="zh-CN" />
-                <el-option label="English" value="en" />
+                <el-option
+                  v-for="option in props.languageOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </label>
 
-            <div class="form-grid-two">
+            <div class="form-grid-two" :style="advancedFieldsStyle">
               <label class="field-block">
-                <span>模型</span>
+                <span>{{ props.modelFieldLabel }}</span>
                 <el-select v-model="form.model" style="width:100%">
-                  <el-option label="Nova 2.0" value="Nova 2.0" />
-                  <el-option label="Nova 2.0 Lite" value="Nova 2.0 Lite" />
-                  <el-option label="Nova Pro" value="Nova Pro" />
-                  <el-option label="Nova IMG-2" value="Nova IMG-2" />
+                  <el-option
+                    v-for="option in props.modelOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </el-select>
               </label>
-              <label class="field-block">
-                <span>尺寸比例</span>
+              <label v-if="props.showRatioField" class="field-block">
+                <span>{{ props.ratioFieldLabel }}</span>
                 <el-select v-model="form.ratio" style="width:100%">
-                  <el-option label="3:4 竖版" value="3:4" />
-                  <el-option label="1:1 正方形" value="1:1" />
-                  <el-option label="4:5 竖图" value="4:5" />
+                  <el-option
+                    v-for="option in props.ratioOptions"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
                 </el-select>
               </label>
-              <label class="field-block">
+              <label v-if="props.showQualityField" class="field-block">
                 <span>清晰度</span>
                 <el-select v-model="form.quality" style="width:100%">
                   <el-option label="2K 高清" value="2K" />
                   <el-option label="1K 标准" value="1K" />
                 </el-select>
               </label>
-              <label class="field-block">
+              <label v-if="props.showCountField" class="field-block">
                 <span>生成数量</span>
                 <el-select v-model="form.count" style="width:100%">
                   <el-option label="1 张" :value="1" />
@@ -171,7 +192,7 @@
 
 
         <el-button class="generate-button" type="primary" size="large" :icon="MagicStick">
-          分析产品
+          {{ props.generateButtonLabel }}
         </el-button>
       </section>
 
@@ -182,7 +203,7 @@
           </span>
           <div>
             <h2>生成结果</h2>
-            <p>上传产品图并点击分析开始</p>
+            <p>{{ props.resultSubtitle }}</p>
           </div>
         </div>
 
@@ -191,7 +212,12 @@
             <span class="empty-symbol">
               <el-icon><MagicStick /></el-icon>
             </span>
-            <p>上传产品图并填写要求后<br />点击分析产品开始</p>
+            <p>
+              <template v-for="(line, index) in emptyMessageLines" :key="line">
+                <br v-if="index" />
+                {{ line }}
+              </template>
+            </p>
           </div>
         </div>
       </section>
@@ -204,11 +230,54 @@ import { computed, onBeforeUnmount, reactive, shallowRef, useTemplateRef } from 
 import { Close, MagicStick, Picture, Upload } from '@element-plus/icons-vue'
 import { selectImageFiles, UPLOAD_LIMIT } from '@/utils/imageUpload'
 
-defineProps({
+const props = defineProps({
   eyebrow: { type: String, default: 'AI 生成' },
   title: { type: String, required: true },
   desc: { type: String, required: true },
-  uploadLabel: { type: String, default: '拖拽或点击上传商品图 / 参考图' }
+  uploadLabel: { type: String, default: '拖拽或点击上传商品图 / 参考图' },
+  steps: { type: Array, default: () => ['输入', '分析中', '确认规划', '生成中', '完成'] },
+  showUploadPanel: { type: Boolean, default: true },
+  showAssetTabs: { type: Boolean, default: true },
+  showPromptHelper: { type: Boolean, default: true },
+  showProductInfoField: { type: Boolean, default: false },
+  showRatioField: { type: Boolean, default: true },
+  showQualityField: { type: Boolean, default: true },
+  showCountField: { type: Boolean, default: true },
+  promptBeforePlatform: { type: Boolean, default: false },
+  promptFieldLabel: { type: String, default: '' },
+  promptPlaceholder: { type: String, default: '建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等' },
+  productInfoLabel: { type: String, default: '产品信息' },
+  productInfoPlaceholder: { type: String, default: '' },
+  languageFieldLabel: { type: String, default: '目标语言' },
+  languageOptions: {
+    type: Array,
+    default: () => [
+      { label: '中文(简体)', value: 'zh-CN' },
+      { label: 'English', value: 'en' }
+    ]
+  },
+  modelFieldLabel: { type: String, default: '模型' },
+  modelOptions: {
+    type: Array,
+    default: () => [
+      { label: 'Nova 2.0', value: 'Nova 2.0' },
+      { label: 'Nova 2.0 Lite', value: 'Nova 2.0 Lite' },
+      { label: 'Nova Pro', value: 'Nova Pro' },
+      { label: 'Nova IMG-2', value: 'Nova IMG-2' }
+    ]
+  },
+  ratioFieldLabel: { type: String, default: '尺寸比例' },
+  ratioOptions: {
+    type: Array,
+    default: () => [
+      { label: '3:4 竖版', value: '3:4' },
+      { label: '1:1 正方形', value: '1:1' },
+      { label: '4:5 竖图', value: '4:5' }
+    ]
+  },
+  generateButtonLabel: { type: String, default: '分析产品' },
+  resultSubtitle: { type: String, default: '上传产品图并点击分析开始' },
+  emptyMessage: { type: String, default: '上传产品图并填写要求后\n点击分析产品开始' }
 })
 
 const assetTypes = [
@@ -216,24 +285,40 @@ const assetTypes = [
   { label: '详情图' }
 ]
 
+const firstOptionValue = (options, fallback) => options[0]?.value ?? fallback
+
 const form = reactive({
   assetType: '主图',
   platform: '抖音',
-  ratio: '3:4',
+  ratio: firstOptionValue(props.ratioOptions, '3:4'),
   count: 1,
-  language: 'zh-CN',
-  model: 'Nova 2.0',
+  language: firstOptionValue(props.languageOptions, 'zh-CN'),
+  model: firstOptionValue(props.modelOptions, 'Nova 2.0'),
   quality: '2K',
-  prompt: ''
+  prompt: '',
+  productInfo: ''
 })
-
-const steps = ['输入', '分析中', '确认规划', '生成中', '完成']
 
 const fileInput = useTemplateRef('fileInput')
 const uploadedImages = shallowRef([])
 const isDragging = shallowRef(false)
 let nextImageId = 0
 let dragDepth = 0
+
+// 剧情生成页会重排字段，但商品图等页面继续沿用默认顺序。
+const fieldOrder = computed(() => (
+  props.promptBeforePlatform
+    ? { prompt: 1, productInfo: 2, platform: 3, language: 4, advanced: 5 }
+    : { platform: 1, prompt: 2, productInfo: 3, language: 4, advanced: 5 }
+))
+
+const platformFieldStyle = computed(() => ({ order: fieldOrder.value.platform }))
+const promptFieldStyle = computed(() => ({ order: fieldOrder.value.prompt }))
+const productInfoFieldStyle = computed(() => ({ order: fieldOrder.value.productInfo }))
+const languageFieldStyle = computed(() => ({ order: fieldOrder.value.language }))
+const advancedFieldsStyle = computed(() => ({ order: fieldOrder.value.advanced }))
+const promptFieldLabel = computed(() => props.promptFieldLabel || `${form.assetType}要求`)
+const emptyMessageLines = computed(() => props.emptyMessage.split('\n'))
 
 const uploadHint = computed(() => {
   if (uploadedImages.value.length >= UPLOAD_LIMIT) {

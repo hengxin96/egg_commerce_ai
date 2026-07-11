@@ -1,5 +1,8 @@
 package com.egg.commerce.system.service.ai.storage;
 
+/**
+ * 对象存储结果值对象，记录桶名、对象键、访问地址和文件元数据。
+ */
 public class AiStoredObject
 {
     private String bucket;

@@ -19,11 +19,17 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
 {
     private final Environment environment;
 
+    /**
+     * 注入环境配置读取器，OSS 连接信息由运行环境提供。
+     */
     public AiAliOssObjectStorageServiceImpl(Environment environment)
     {
         this.environment = environment;
     }
 
+    /**
+     * 上传知识库源文件到阿里 OSS，并返回可持久化的对象元数据。
+     */
     @Override
     public AiStoredObject uploadKnowledgeFile(MultipartFile file)
     {
@@ -39,7 +45,7 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
 
         try (InputStream inputStream = file.getInputStream())
         {
-            // Knowledge files are persisted here so later RAG ingestion can trace the original source object.
+            // 知识库文件持久化到这里，后续 RAG 入库可以追溯原始源对象。
             client.putObject(oss.getBucket(), objectKey, inputStream);
         }
         catch (IOException e)
@@ -64,6 +70,9 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         return storedObject;
     }
 
+    /**
+     * 从阿里 OSS 删除指定对象，配合知识库文档删除清理源文件。
+     */
     @Override
     public void deleteObject(String objectKey)
     {
@@ -88,6 +97,9 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         }
     }
 
+    /**
+     * 读取并校验阿里 OSS 必要配置，避免缺配置时继续发起远程调用。
+     */
     private AiAliOssSettings requireAliOssConfig()
     {
         AiAliOssSettings settings = new AiAliOssSettings();
@@ -105,6 +117,9 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         return settings;
     }
 
+    /**
+     * 生成知识库文件对象键，按日期目录和随机 ID 避免文件名冲突。
+     */
     private String buildKnowledgeObjectKey(String objectPrefix, String extension)
     {
         String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(objectPrefix, "ai"), "/");
@@ -121,6 +136,9 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         return objectKey.toString();
     }
 
+    /**
+     * 拼装 OSS 对象访问地址，用于后台下载和后续重试向量化。
+     */
     private String buildObjectUrl(AiAliOssSettings oss, String objectKey)
     {
         String endpoint = StringUtils.removeStartIgnoreCase(oss.getEndpoint(), "https://");

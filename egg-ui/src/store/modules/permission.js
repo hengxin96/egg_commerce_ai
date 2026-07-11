@@ -141,10 +141,21 @@ function normalizeViewPath(view) {
   return view.endsWith('.vue') ? view : `${view}.vue`
 }
 
+const devViewModules = process.env.NODE_ENV === 'development'
+  ? require.context('@/views', true, /\.vue$/)
+  : null
+
+function loadDevelopmentView(normalizedView) {
+  // Keep admin menu routes on one explicit webpack context so newly added pages
+  // are discoverable after hot rebuilds instead of relying on a loose expression.
+  const viewModule = devViewModules(`./${normalizedView}`)
+  return viewModule.default || viewModule
+}
+
 export const loadView = (view) => {
   const normalizedView = normalizeViewPath(view)
   if (process.env.NODE_ENV === 'development') {
-    return (resolve) => require([`@/views/${normalizedView}`], resolve)
+    return (resolve) => resolve(loadDevelopmentView(normalizedView))
   } else {
     // 使用 import 实现生产环境的路由懒加载
     return () => import(`@/views/${normalizedView}`)

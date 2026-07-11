@@ -156,7 +156,11 @@ Backend planned paths:
 - Chat controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/chat`
 - Chat domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/chat`
 - RAG service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/rag`
+- Local RAG fallback: `egg-system/src/main/java/com/egg/commerce/system/service/ai/rag/impl/AiLocalVectorStoreServiceImpl`
+- Milvus RAG implementation: `egg-system/src/main/java/com/egg/commerce/system/service/ai/rag/impl/AiSpringMilvusVectorStoreServiceImpl`
+- Spring AI embedding bridge: `egg-framework/src/main/java/com/egg/commerce/framework/ai/model/DashScopeEmbeddingModel.java`
 - Knowledge base domain/service/mapper: `egg-system/src/main/java/com/egg/commerce/system/.../ai/knowledge`
+- Knowledge base admin controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/knowledge`
 - Coze integration: `egg-system/src/main/java/com/egg/commerce/system/service/ai/coze`
 
 
@@ -164,7 +168,8 @@ Frontend planned paths:
 
 - Chat page: `egg-user-web/src/pages/chat`
 - Chat components: `egg-user-web/src/components/chat`
-- Admin RAG management: `egg-ui/src/views/ai/knowledge` if added to Egg admin
+- Admin RAG knowledge page: `egg-ui/src/views/ai/knowledge/index.vue`
+- Admin RAG knowledge API wrapper: `egg-ui/src/api/ai/knowledge.js`
 
 ### Model Gateway
 
@@ -177,6 +182,8 @@ Purpose:
 Backend planned paths:
 
 - Gateway service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
+- Gateway configuration bridge: `egg-framework/src/main/java/com/egg/commerce/framework/config/AiModelGatewayConfig.java`
+- DashScope embedding adapter: `egg-framework/src/main/java/com/egg/commerce/framework/ai/model/DashScopeEmbeddingModel.java`
 - Provider configs: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/model`
 - Admin controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/model`
 
@@ -242,6 +249,7 @@ Purpose:
 
 - Maintain reusable Markdown prompt templates for later image generation, RAG, and agent workflows.
 - Store prompt bodies as JSONB with `{ "format": "markdown", "body": "..." }`.
+- Select prompt template categories from the Egg dictionary type `prompt_type`.
 - Keep optional variable definitions for dynamic rendering with `{name}` style placeholders.
 
 Backend paths:

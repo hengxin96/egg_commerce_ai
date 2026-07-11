@@ -4,6 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveCategoryMapper">
 
+    <!-- 敏感词分类 SQL 映射，支持后台分类维护和删除前关联检查。 -->
     <resultMap id="AiSensitiveCategoryResult" type="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory">
         <id property="id" column="id"/>
         <result property="categoryName" column="category_name"/>
@@ -23,11 +24,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from ai_sensitive_categories
     </sql>
 
+    <!-- 按 ID 查询敏感词分类详情。 -->
     <select id="selectAiSensitiveCategoryById" parameterType="Long" resultMap="AiSensitiveCategoryResult">
         <include refid="selectAiSensitiveCategoryVo"/>
         where id = #{id}
     </select>
 
+    <!-- 后台敏感词分类列表查询，支持名称和状态筛选。 -->
     <select id="selectAiSensitiveCategoryList"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory"
             resultMap="AiSensitiveCategoryResult">
@@ -46,6 +49,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by created_at desc
     </select>
 
+    <!-- 新增敏感词分类。 -->
     <insert id="insertAiSensitiveCategory"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory"
             useGeneratedKeys="true"
@@ -65,6 +69,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         )
     </insert>
 
+    <!-- 更新敏感词分类名称或状态。 -->
     <update id="updateAiSensitiveCategory"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory">
         update ai_sensitive_categories
@@ -80,6 +85,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id}
     </update>
 
+    <!-- 删除分类前统计关联词条，避免留下无归属敏感词。 -->
     <select id="countAiSensitiveWordsByCategoryIds" parameterType="Long" resultType="int">
         select count(1)
         from ai_sensitive_words
@@ -89,6 +95,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </select>
 
+    <!-- 批量删除敏感词分类。 -->
     <delete id="deleteAiSensitiveCategoryByIds" parameterType="Long">
         delete from ai_sensitive_categories
         where id in

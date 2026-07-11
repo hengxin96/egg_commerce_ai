@@ -1,5 +1,8 @@
 package com.egg.commerce.system.service.ai.rag;
 
+/**
+ * 知识文档切片对象，承载向量化前的文本片段和顺序。
+ */
 public class AiDocumentChunk
 {
     private String chunkId;

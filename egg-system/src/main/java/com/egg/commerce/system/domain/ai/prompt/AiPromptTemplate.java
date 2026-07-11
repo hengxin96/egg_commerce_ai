@@ -7,35 +7,47 @@ import jakarta.validation.constraints.Size;
 import com.egg.commerce.common.core.domain.BaseEntity;
 
 /**
- * AI prompt template record backed by ai_prompt_templates.
+ * AI 提示词模板实体，对应 ai_prompt_templates 表。
+ *
+ * <p>模板用于集中管理可复用提示词，后续图片生成、RAG 问答或 agent 编排可以按分类、状态和版本
+ * 选择模板。正文和变量以 JSON 字符串传输，方便 PostgreSQL JSONB 保存结构化内容。</p>
  */
 public class AiPromptTemplate extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
+    /** 模板主键，使用字符串 ID 便于与前端和 SQL 脚本保持一致。 */
     private String id;
 
+    /** 模板名称，后台列表和选择器展示的主要标题。 */
     private String name;
 
+    /** 模板说明，记录使用场景、适用模型或维护注意事项。 */
     private String description;
 
+    /** 模板分类，例如 image-generation、rag-chat、audit，用于后台筛选和后续调用选择。 */
     private String category;
 
-    /** JSON string saved into PostgreSQL JSONB as { format, body }. */
+    /** JSON 字符串，保存为 PostgreSQL JSONB，当前约定结构为 { format, body }。 */
     private String content;
 
-    /** Optional JSON string describing manually maintained placeholder variables. */
+    /** 可选 JSON 字符串，描述手工维护的占位变量，例如变量名、默认值和说明。 */
     private String variables;
 
+    /** 模板版本号，新增时默认从 1 开始，便于后续追踪提示词迭代。 */
     private Integer version;
 
+    /** 模板状态，当前支持 draft、published、archived。 */
     private String status;
 
+    /** 创建模板的后台管理员用户 ID。 */
     private Long createdBy;
 
+    /** 模板创建时间。 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date createdAt;
 
+    /** 模板最近更新时间。 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date updatedAt;
 

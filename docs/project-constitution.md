@@ -95,11 +95,14 @@ High-risk outputs must not be silently exported as final assets. The user must b
 
 All code must include simple, useful comments that explain what the code does and why it exists when the intent is not immediately obvious.
 
+AI agents and Codex sessions must add maintenance comments by default when generating or changing code. This applies in current threads and future new threads because agent entry rules point back to this constitution.
+
 Comments should:
 
 - Explain business purpose, workflow intent, important assumptions, and non-obvious decisions
 - Mark boundaries between controller, service, model gateway, RAG, storage, task, and frontend responsibilities when helpful
 - Clarify AI prompts, model parameters, task states, file storage paths, and audit decisions
+- Cover generated or modified controller, service, service implementation, domain/entity, mapper, API wrapper, task, storage, RAG, model gateway, and frontend workflow code when those files contain business intent or integration behavior
 - Stay short and readable for future maintainers and future AI agents
 
 Comments should not restate obvious syntax. For example, avoid comments like "set name" above `setName(...)`. Prefer comments that help someone debug or safely modify the feature later.
@@ -217,4 +220,4 @@ Versioning follows semantic intent:
 
 All future planning, code review, UI design, and AI-agent work must verify constitution compliance before treating a task as ready.
 
-**Version**: 1.2.0 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-06-27
+**Version**: 1.2.1 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-09

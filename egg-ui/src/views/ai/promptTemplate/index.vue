@@ -11,13 +11,14 @@
         />
       </el-form-item>
       <el-form-item label="分类" prop="category">
-        <el-input
-          v-model="queryParams.category"
-          placeholder="请输入分类"
-          clearable
-          style="width: 200px"
-          @keyup.enter.native="handleQuery"
-        />
+        <el-select v-model="queryParams.category" placeholder="请选择分类" clearable style="width: 200px">
+          <el-option
+            v-for="dict in dict.type.prompt_type"
+            :key="dict.value"
+            :label="dict.label"
+            :value="dict.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable style="width: 160px">
@@ -74,7 +75,11 @@
     <el-table v-loading="loading" :data="promptTemplateList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="模板名称" align="left" prop="name" min-width="180" :show-overflow-tooltip="true" />
-      <el-table-column label="分类" align="center" prop="category" width="140" :show-overflow-tooltip="true" />
+      <el-table-column label="分类" align="center" prop="category" width="140" :show-overflow-tooltip="true">
+        <template slot-scope="scope">
+          <dict-tag :options="dict.type.prompt_type" :value="scope.row.category" />
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="110">
         <template slot-scope="scope">
           <el-tag :type="getStatusType(scope.row.status)" size="mini">{{ getStatusLabel(scope.row.status) }}</el-tag>
@@ -137,7 +142,14 @@
           </el-col>
           <el-col :span="6">
             <el-form-item label="分类" prop="category">
-              <el-input v-model="form.category" placeholder="自由输入" maxlength="100" />
+              <el-select v-model="form.category" placeholder="请选择分类" clearable style="width: 100%">
+                <el-option
+                  v-for="dict in dict.type.prompt_type"
+                  :key="dict.value"
+                  :label="dict.label"
+                  :value="dict.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="6">
@@ -184,7 +196,9 @@
     <el-dialog title="提示词模板详情" :visible.sync="detailOpen" width="980px" append-to-body>
       <el-descriptions :column="2" border size="small">
         <el-descriptions-item label="模板名称">{{ detail.name }}</el-descriptions-item>
-        <el-descriptions-item label="分类">{{ detail.category }}</el-descriptions-item>
+        <el-descriptions-item label="分类">
+          <dict-tag :options="dict.type.prompt_type" :value="detail.category" />
+        </el-descriptions-item>
         <el-descriptions-item label="状态">{{ getStatusLabel(detail.status) }}</el-descriptions-item>
         <el-descriptions-item label="版本">{{ detail.version }}</el-descriptions-item>
         <el-descriptions-item label="创建人">{{ detail.createdBy }}</el-descriptions-item>
@@ -214,6 +228,7 @@ import {
 
 export default {
   name: 'PromptTemplate',
+  dicts: ['prompt_type'],
   data() {
     return {
       loading: true,

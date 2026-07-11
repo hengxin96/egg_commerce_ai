@@ -23,8 +23,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+/**
+ * 知识库向量化服务测试，覆盖切片入库成功和解析失败状态回写。
+ */
 class AiKnowledgeVectorizationServiceImplTest
 {
+    /**
+     * 验证向量化成功后会写回完成状态、向量 ID 和切片数量。
+     */
     @Test
     void vectorizationCompletesDocumentAndStoresVectorIds()
     {
@@ -47,6 +53,9 @@ class AiKnowledgeVectorizationServiceImplTest
         assertNotNull(mapper.document.getCompletedAt());
     }
 
+    /**
+     * 验证解析失败时会把文档标记为失败并保存失败原因。
+     */
     @Test
     void vectorizationMarksDocumentFailedWhenParsingFails()
     {
@@ -79,6 +88,9 @@ class AiKnowledgeVectorizationServiceImplTest
 
     private static class ImmediateThreadPoolTaskExecutor extends ThreadPoolTaskExecutor
     {
+        /**
+         * 立即执行异步任务，让测试可以同步断言状态回写。
+         */
         @Override
         public Future<?> submit(Runnable task)
         {
@@ -91,24 +103,36 @@ class AiKnowledgeVectorizationServiceImplTest
     {
         private AiKnowledgeDocument document;
 
+        /**
+         * 返回测试当前持有的单个文档。
+         */
         @Override
         public AiKnowledgeDocument selectAiKnowledgeDocumentById(String id)
         {
             return document;
         }
 
+        /**
+         * 返回单文档列表，满足 mapper 接口测试桩要求。
+         */
         @Override
         public List<AiKnowledgeDocument> selectAiKnowledgeDocumentByIds(String[] ids)
         {
             return document == null ? Collections.emptyList() : List.of(document);
         }
 
+        /**
+         * 返回单文档列表，测试中不模拟筛选。
+         */
         @Override
         public List<AiKnowledgeDocument> selectAiKnowledgeDocumentList(AiKnowledgeDocument query)
         {
             return document == null ? Collections.emptyList() : List.of(document);
         }
 
+        /**
+         * 保存测试文档引用。
+         */
         @Override
         public int insertAiKnowledgeDocument(AiKnowledgeDocument document)
         {
@@ -116,6 +140,9 @@ class AiKnowledgeVectorizationServiceImplTest
             return 1;
         }
 
+        /**
+         * 捕获向量化服务回写后的文档对象。
+         */
         @Override
         public int updateAiKnowledgeDocument(AiKnowledgeDocument document)
         {
@@ -123,6 +150,9 @@ class AiKnowledgeVectorizationServiceImplTest
             return 1;
         }
 
+        /**
+         * 清空测试文档引用。
+         */
         @Override
         public int deleteAiKnowledgeDocumentByIds(String[] ids)
         {
@@ -135,6 +165,9 @@ class AiKnowledgeVectorizationServiceImplTest
     {
         private RuntimeException failure;
 
+        /**
+         * 返回固定切片，或按测试设置抛出解析异常。
+         */
         @Override
         public List<AiDocumentChunk> parseAndSplit(String fileName, byte[] content)
         {
@@ -148,6 +181,9 @@ class AiKnowledgeVectorizationServiceImplTest
             return chunks;
         }
 
+        /**
+         * 构造带 ID、序号和内容的测试切片。
+         */
         private AiDocumentChunk chunk(String id, int index)
         {
             AiDocumentChunk chunk = new AiDocumentChunk();
@@ -160,18 +196,27 @@ class AiKnowledgeVectorizationServiceImplTest
 
     private static class FakeVectorStore implements AiVectorStoreService
     {
+        /**
+         * 返回固定向量 ID，模拟向量库写入成功。
+         */
         @Override
         public List<String> addKnowledgeChunks(String documentId, String fileName, List<AiDocumentChunk> chunks)
         {
             return List.of("v1", "v2");
         }
 
+        /**
+         * 向量化测试不覆盖检索行为。
+         */
         @Override
         public List<AiVectorRecord> search(String query, int topK, double minScore)
         {
             return Collections.emptyList();
         }
 
+        /**
+         * 向量化测试不覆盖删除行为。
+         */
         @Override
         public void deleteVectors(List<String> vectorIds)
         {

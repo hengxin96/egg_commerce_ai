@@ -12,7 +12,25 @@ export function uploadKnowledge(data) {
   return request({
     url: '/ai/knowledge/upload',
     method: 'post',
-    data
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+export function uploadKnowledgeBatch(data) {
+  return request({
+    url: '/ai/knowledge/upload/batch',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000
+  })
+}
+
+export function getKnowledgeDownloadUrls(ids) {
+  return request({
+    url: '/ai/knowledge/download-urls/' + ids,
+    method: 'get'
   })
 }
 

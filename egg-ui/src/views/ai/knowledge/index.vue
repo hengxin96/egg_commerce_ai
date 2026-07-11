@@ -1,125 +1,123 @@
 <template>
-  <div class="app-container">
-    <el-form
-      ref="queryForm"
-      :model="queryParams"
-      size="small"
-      :inline="true"
-      v-show="showSearch"
-      label-width="80px"
-    >
-      <el-form-item label="文件名称" prop="fileName">
-        <el-input
-          v-model="queryParams.fileName"
-          placeholder="请输入文件名称"
-          clearable
-          style="width: 240px"
-          @keyup.enter.native="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="处理状态" prop="status">
-        <el-select
-          v-model="queryParams.status"
-          placeholder="请选择处理状态"
-          clearable
-          style="width: 180px"
-        >
-          <el-option label="处理中" value="processing" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="失败" value="failed" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
-        <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
-      </el-form-item>
+  <div class="knowledge-hub-page app-container">
+    <section class="knowledge-upload-panel">
+      <el-upload
+        ref="upload"
+        class="knowledge-upload"
+        drag
+        multiple
+        action="#"
+        accept=".pdf,.doc,.docx,.md,.xls,.xlsx,.txt"
+        :auto-upload="false"
+        :file-list="fileList"
+        :before-upload="beforeUpload"
+        :on-change="handleFileChange"
+        :on-remove="handleFileRemove"
+        :disabled="uploading"
+        v-hasPermi="['ai:knowledge:upload']"
+      >
+        <i class="el-icon-upload knowledge-upload__icon"></i>
+        <div class="el-upload__text">拖拽文件至此或<em>点击选择文件</em>进行上传</div>
+        <div slot="tip" class="knowledge-upload__tip">
+          文件支持 <i>pdf、doc、md、excel、text</i> 等，最大可上传 <em>100MB</em>
+        </div>
+      </el-upload>
+    </section>
+
+    <el-form ref="queryForm" class="knowledge-toolbar" :model="queryParams" :inline="true" size="small">
+      <div class="knowledge-toolbar__left">
+        <el-button
+          type="danger"
+          size="small"
+          :disabled="selectedRows.length === 0"
+          @click="handleBatchDelete"
+          v-hasPermi="['ai:knowledge:remove']"
+        >批量删除</el-button>
+        <el-button
+          type="primary"
+          size="small"
+          :disabled="selectedRows.length === 0 || downloading"
+          :loading="downloading"
+          @click="handleBatchDownload"
+        >批量下载</el-button>
+        <el-form-item label="文件名:" prop="fileName">
+          <el-input
+            v-model="queryParams.fileName"
+            class="knowledge-toolbar__input"
+            placeholder="请输入文件名称"
+            clearable
+            @keyup.enter.native="handleQuery"
+          />
+        </el-form-item>
+        <el-button type="primary" size="small" :loading="loading" @click="handleQuery">搜索</el-button>
+      </div>
+      <el-button
+        type="warning"
+        size="small"
+        :disabled="fileList.length === 0"
+        :loading="uploading"
+        @click="submitUpload"
+        v-hasPermi="['ai:knowledge:upload']"
+      >全部上传</el-button>
     </el-form>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-upload
-          ref="upload"
-          action="#"
-          :auto-upload="false"
-          :limit="1"
-          :file-list="fileList"
-          :on-change="handleFileChange"
-          :on-remove="handleFileRemove"
-          :on-exceed="handleFileExceed"
-          :http-request="handleUploadRequest"
-          :before-upload="beforeUpload"
-          v-hasPermi="['ai:knowledge:upload']"
-        >
-          <el-button
-            type="primary"
-            plain
-            icon="el-icon-upload2"
-            size="mini"
-            :loading="uploading"
-          >上传文档</el-button>
-        </el-upload>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="success"
-          plain
-          icon="el-icon-check"
-          size="mini"
-          :disabled="!fileList.length"
-          :loading="uploading"
-          @click="submitUpload"
-          v-hasPermi="['ai:knowledge:upload']"
-        >开始上传</el-button>
-      </el-col>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
-    </el-row>
-
-    <el-table v-loading="loading" :data="knowledgeList">
-      <el-table-column label="文件名称" align="left" prop="fileName" min-width="220" :show-overflow-tooltip="true" />
-      <el-table-column label="文件大小" align="center" prop="fileSize" width="110">
+    <el-table
+      ref="knowledgeTable"
+      class="knowledge-table"
+      v-loading="loading"
+      :data="knowledgeList"
+      border
+      height="calc(100vh - 430px)"
+      @selection-change="handleSelectionChange"
+    >
+      <el-table-column type="selection" width="55" align="center" />
+      <el-table-column label="序号" width="80" align="center">
         <template slot-scope="scope">
-          <span>{{ formatFileSize(scope.row.fileSize) }}</span>
+          {{ (queryParams.pageNum - 1) * queryParams.pageSize + scope.$index + 1 }}
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center" prop="status" width="100">
+      <el-table-column label="文件名" prop="fileName" min-width="360" :show-overflow-tooltip="true" />
+      <el-table-column label="状态" width="110" align="center">
         <template slot-scope="scope">
           <el-tag :type="statusType(scope.row.status)" size="mini">{{ statusLabel(scope.row.status) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="切片数" align="center" prop="chunkCount" width="90" />
-      <el-table-column label="失败原因" align="left" prop="failureReason" min-width="220" :show-overflow-tooltip="true">
+      <el-table-column label="切片数" prop="chunkCount" width="90" align="center">
         <template slot-scope="scope">
-          <span>{{ scope.row.failureReason || '-' }}</span>
+          <span>{{ scope.row.chunkCount || 0 }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="更新时间" align="center" prop="updatedAt" width="180">
+      <el-table-column label="上传时间" width="180">
+        <template slot-scope="scope">
+          <span>{{ parseTime(scope.row.createdAt) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="更新时间" width="180">
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.updatedAt) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="150" class-name="small-padding fixed-width">
+      <el-table-column label="操作" width="220" fixed="right">
         <template slot-scope="scope">
           <el-button
             v-if="scope.row.status === 'failed'"
+            type="warning"
             size="mini"
-            type="text"
-            icon="el-icon-refresh"
             @click="handleRetry(scope.row)"
             v-hasPermi="['ai:knowledge:retry']"
           >重试</el-button>
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['ai:knowledge:remove']"
-          >删除</el-button>
+          <el-button type="danger" size="mini" @click="handleDelete(scope.row)" v-hasPermi="['ai:knowledge:remove']">
+            删除
+          </el-button>
+          <el-button type="primary" size="mini" :loading="downloadingId === scope.row.id" @click="handleDownload(scope.row)">
+            下载
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <pagination
-      v-show="total>0"
+      v-show="total > 0"
       :total="total"
       :page.sync="queryParams.pageNum"
       :limit.sync="queryParams.pageSize"
@@ -129,7 +127,16 @@
 </template>
 
 <script>
-import { delKnowledge, listKnowledge, retryKnowledge, uploadKnowledge } from '@/api/ai/knowledge'
+import {
+  delKnowledge,
+  getKnowledgeDownloadUrls,
+  listKnowledge,
+  retryKnowledge,
+  uploadKnowledgeBatch
+} from '@/api/ai/knowledge'
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024
+const SUPPORTED_EXTENSIONS = ['pdf', 'doc', 'docx', 'md', 'xls', 'xlsx', 'txt']
 
 export default {
   name: 'AiKnowledge',
@@ -137,10 +144,12 @@ export default {
     return {
       loading: true,
       uploading: false,
-      showSearch: true,
+      downloading: false,
+      downloadingId: undefined,
       total: 0,
       knowledgeList: [],
       fileList: [],
+      selectedRows: [],
       queryParams: {
         pageNum: 1,
         pageSize: 10,
@@ -158,8 +167,7 @@ export default {
       listKnowledge(this.queryParams).then(response => {
         this.knowledgeList = response.rows || []
         this.total = response.total || 0
-        this.loading = false
-      }).catch(() => {
+      }).finally(() => {
         this.loading = false
       })
     },
@@ -167,52 +175,73 @@ export default {
       this.queryParams.pageNum = 1
       this.getList()
     },
-    resetQuery() {
-      this.resetForm('queryForm')
-      this.handleQuery()
-    },
     beforeUpload(file) {
-      if (!file || file.size <= 0) {
-        this.$modal.msgError('请选择有效的知识库文件')
+      const error = this.validateUploadFile(file)
+      if (error) {
+        this.$modal.msgError(error)
         return false
       }
       return true
     },
-    handleUploadRequest(option) {
+    handleFileChange(file, fileList) {
+      const acceptedFiles = []
+      const rejectedMessages = []
+      fileList.forEach(item => {
+        const rawFile = item.raw || item
+        const error = this.validateUploadFile(rawFile)
+        if (error) {
+          rejectedMessages.push(error)
+        } else {
+          acceptedFiles.push(item)
+        }
+      })
+      this.fileList = acceptedFiles
+      if (rejectedMessages.length > 0) {
+        this.$modal.msgWarning(rejectedMessages[0])
+      }
+    },
+    handleFileRemove(file, fileList) {
+      this.fileList = fileList
+    },
+    submitUpload() {
+      if (this.fileList.length === 0) {
+        this.$modal.msgWarning('请先选择要上传的知识库文件')
+        return
+      }
       const formData = new FormData()
-      formData.append('file', option.file)
+      this.fileList.forEach(item => {
+        // The backend expects repeated "files" parts for the batch upload endpoint.
+        formData.append('files', item.raw || item)
+      })
       this.uploading = true
-      uploadKnowledge(formData).then(() => {
+      uploadKnowledgeBatch(formData).then(() => {
         this.$modal.msgSuccess('上传成功，系统将异步解析并向量化')
-        this.fileList = []
-        this.$refs.upload.clearFiles()
+        this.clearUploadFiles()
         this.getList()
       }).finally(() => {
         this.uploading = false
       })
     },
-    submitUpload() {
-      this.$refs.upload.submit()
-    },
-    handleFileChange(file, fileList) {
-      this.fileList = fileList.slice(-1)
-    },
-    handleFileRemove(file, fileList) {
-      this.fileList = fileList
-    },
-    handleFileExceed(files) {
-      this.$refs.upload.clearFiles()
-      const file = files[0]
-      if (file) {
-        this.$refs.upload.handleStart(file)
-        this.fileList = [{ name: file.name, raw: file }]
+    clearUploadFiles() {
+      this.fileList = []
+      if (this.$refs.upload) {
+        this.$refs.upload.clearFiles()
       }
     },
-    handleRetry(row) {
-      this.$modal.confirm('是否确认重新处理文件"' + row.fileName + '"？').then(() => {
-        return retryKnowledge(row.id)
+    handleSelectionChange(selection) {
+      this.selectedRows = selection
+    },
+    handleBatchDelete() {
+      if (this.selectedRows.length === 0) {
+        this.$modal.msgWarning('请先选择要删除的文件')
+        return
+      }
+      const ids = this.selectedRows.map(row => row.id)
+      this.$modal.confirm('是否确认删除选中的知识库文件？').then(() => {
+        return delKnowledge(ids.join(','))
       }).then(() => {
-        this.$modal.msgSuccess('已提交重试')
+        this.$modal.msgSuccess('删除成功')
+        this.selectedRows = []
         this.getList()
       }).catch(() => {})
     },
@@ -224,15 +253,69 @@ export default {
         this.getList()
       }).catch(() => {})
     },
-    formatFileSize(size) {
-      const value = Number(size || 0)
-      if (value < 1024) {
-        return value + ' B'
+    handleRetry(row) {
+      this.$modal.confirm('是否确认重新处理文件"' + row.fileName + '"？').then(() => {
+        return retryKnowledge(row.id)
+      }).then(() => {
+        this.$modal.msgSuccess('已提交重试')
+        this.getList()
+      }).catch(() => {})
+    },
+    handleBatchDownload() {
+      if (this.selectedRows.length === 0) {
+        this.$modal.msgWarning('请先选择要下载的文件')
+        return
       }
-      if (value < 1024 * 1024) {
-        return (value / 1024).toFixed(1) + ' KB'
+      this.downloadRows(this.selectedRows)
+    },
+    handleDownload(row) {
+      this.downloadingId = row.id
+      this.downloadRows([row]).finally(() => {
+        this.downloadingId = undefined
+      })
+    },
+    downloadRows(rows) {
+      const ids = rows.map(row => row.id).join(',')
+      this.downloading = true
+      return getKnowledgeDownloadUrls(ids).then(response => {
+        const urls = response.data || []
+        if (urls.length === 0) {
+          this.$modal.msgWarning('未找到可下载的 OSS 文件地址')
+          return
+        }
+        urls.forEach((item, index) => {
+          setTimeout(() => this.triggerDownload(item.url, item.fileName), index * 150)
+        })
+      }).finally(() => {
+        this.downloading = false
+      })
+    },
+    triggerDownload(url, fileName) {
+      if (!url) {
+        return
       }
-      return (value / 1024 / 1024).toFixed(1) + ' MB'
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName || ''
+      link.target = '_blank'
+      link.rel = 'noopener'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    },
+    validateUploadFile(file) {
+      if (!file || file.size <= 0) {
+        return '请选择有效的知识库文件'
+      }
+      const fileName = file.name || ''
+      const extension = fileName.includes('.') ? fileName.split('.').pop().toLowerCase() : ''
+      if (!SUPPORTED_EXTENSIONS.includes(extension)) {
+        return '仅支持上传 pdf、doc、docx、md、xls、xlsx、txt 格式的知识库文件'
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        return '知识库文件不能超过 100MB'
+      }
+      return ''
     },
     statusLabel(status) {
       const labels = {
@@ -253,3 +336,114 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.knowledge-hub-page {
+  min-height: calc(100vh - 84px);
+  background: #f3f3f3;
+  padding: 22px 28px;
+}
+
+.knowledge-upload-panel {
+  padding: 0 0 16px;
+}
+
+.knowledge-upload {
+  width: 100%;
+}
+
+.knowledge-upload ::v-deep .el-upload {
+  width: 100%;
+}
+
+.knowledge-upload ::v-deep .el-upload-dragger {
+  width: 100%;
+  height: 235px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.knowledge-upload__icon {
+  margin-top: 58px;
+  color: #a8adb6;
+  font-size: 58px;
+  line-height: 1;
+}
+
+.knowledge-upload ::v-deep .el-upload__text {
+  margin-top: 18px;
+  color: #606266;
+  font-size: 16px;
+}
+
+.knowledge-upload ::v-deep .el-upload__text em {
+  color: #409eff;
+  font-style: normal;
+}
+
+.knowledge-upload__tip {
+  margin-top: 6px;
+  text-align: center;
+  color: #606266;
+  font-size: 16px;
+}
+
+.knowledge-upload__tip i {
+  font-style: italic;
+}
+
+.knowledge-upload__tip em {
+  color: #1f33ff;
+  font-style: italic;
+}
+
+.knowledge-upload ::v-deep .el-upload-list {
+  max-width: 720px;
+  margin: 10px auto 0;
+}
+
+.knowledge-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(31, 45, 61, 0.08);
+}
+
+.knowledge-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.knowledge-toolbar ::v-deep .el-form-item {
+  margin-bottom: 0;
+}
+
+.knowledge-toolbar__input {
+  width: 250px;
+}
+
+.knowledge-table {
+  background: #fff;
+}
+
+.knowledge-table ::v-deep th {
+  background: #f5f7fa;
+  color: #737b86;
+  font-weight: 600;
+}
+
+.knowledge-table ::v-deep .el-table__cell {
+  padding: 12px 0;
+}
+
+.knowledge-table ::v-deep .el-button--mini {
+  padding: 7px 12px;
+}
+</style>

@@ -9,8 +9,14 @@ import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.prompt.AiPromptTemplate;
 import com.egg.commerce.system.mapper.ai.prompt.AiPromptTemplateMapper;
 
+/**
+ * 提示词模板服务测试，覆盖默认字段填充和模板内容校验。
+ */
 class AiPromptTemplateServiceImplTest
 {
+    /**
+     * 验证新增模板会补齐默认变量、状态和版本。
+     */
     @Test
     void insertPromptTemplateDefaultsVariablesStatusAndVersion()
     {
@@ -28,6 +34,9 @@ class AiPromptTemplateServiceImplTest
         assertEquals("[]", mapper.inserted.getVariables());
     }
 
+    /**
+     * 验证缺少 Markdown 正文的提示词模板会被拒绝。
+     */
     @Test
     void insertPromptTemplateRejectsContentWithoutMarkdownBody()
     {
@@ -42,6 +51,9 @@ class AiPromptTemplateServiceImplTest
         assertEquals("提示词正文不能为空", exception.getMessage());
     }
 
+    /**
+     * 验证未知模板状态不会被保存。
+     */
     @Test
     void updatePromptTemplateRejectsUnknownStatus()
     {
@@ -62,18 +74,27 @@ class AiPromptTemplateServiceImplTest
     {
         private AiPromptTemplate inserted;
 
+        /**
+         * 测试不需要按 ID 查询模板，返回空结果。
+         */
         @Override
         public AiPromptTemplate selectAiPromptTemplateById(String id)
         {
             return null;
         }
 
+        /**
+         * 测试不覆盖列表查询，返回空列表。
+         */
         @Override
         public List<AiPromptTemplate> selectAiPromptTemplateList(AiPromptTemplate promptTemplate)
         {
             return List.of();
         }
 
+        /**
+         * 捕获服务层准备保存的新增模板。
+         */
         @Override
         public int insertAiPromptTemplate(AiPromptTemplate promptTemplate)
         {
@@ -81,18 +102,27 @@ class AiPromptTemplateServiceImplTest
             return 1;
         }
 
+        /**
+         * 更新测试只关心前置校验，返回成功。
+         */
         @Override
         public int updateAiPromptTemplate(AiPromptTemplate promptTemplate)
         {
             return 1;
         }
 
+        /**
+         * 测试不覆盖单条删除，返回成功。
+         */
         @Override
         public int deleteAiPromptTemplateById(String id)
         {
             return 1;
         }
 
+        /**
+         * 返回传入 ID 数量作为批量删除数量。
+         */
         @Override
         public int deleteAiPromptTemplateByIds(String[] ids)
         {

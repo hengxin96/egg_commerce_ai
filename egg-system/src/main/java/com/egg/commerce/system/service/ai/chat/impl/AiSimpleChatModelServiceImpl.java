@@ -7,10 +7,16 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+/**
+ * 简单聊天模型实现，基于第一条 RAG 来源拼装可追溯的临时回答。
+ */
 @Service
 @ConditionalOnProperty(name = "egg.ai.mock-enabled", havingValue = "false", matchIfMissing = true)
 public class AiSimpleChatModelServiceImpl implements AiChatModelService
 {
+    /**
+     * 用第一条检索来源拼装临时回答，真实模型接入后可替换该实现。
+     */
     @Override
     public String generateAnswer(String question, List<AiVectorRecord> sources)
     {

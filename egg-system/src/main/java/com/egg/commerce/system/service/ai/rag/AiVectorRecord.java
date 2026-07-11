@@ -3,6 +3,9 @@ package com.egg.commerce.system.service.ai.rag;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * RAG 向量检索记录，承载切片内容、来源元数据和相似度分数。
+ */
 public class AiVectorRecord
 {
     private String vectorId;

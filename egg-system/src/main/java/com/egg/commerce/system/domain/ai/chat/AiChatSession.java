@@ -3,6 +3,9 @@ package com.egg.commerce.system.domain.ai.chat;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import java.util.Date;
 
+/**
+ * 智能聊天会话实体，记录用户会话摘要、状态和最近消息时间。
+ */
 public class AiChatSession
 {
     private String id;

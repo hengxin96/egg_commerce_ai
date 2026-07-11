@@ -4,6 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.egg.commerce.system.mapper.ai.chat.AiChatSessionMapper">
 
+    <!-- 智能聊天会话 SQL 映射，负责会话列表、创建和摘要更新。 -->
     <resultMap id="AiChatSessionResult" type="com.egg.commerce.system.domain.ai.chat.AiChatSession">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
@@ -29,11 +30,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         from ai_chat_sessions
     </sql>
 
+    <!-- 按 ID 查询会话，用于归属校验。 -->
     <select id="selectAiChatSessionById" parameterType="String" resultMap="AiChatSessionResult">
         <include refid="selectAiChatSessionVo"/>
         where id = cast(#{id} as uuid)
     </select>
 
+    <!-- 查询用户会话列表，按最近更新时间排序。 -->
     <select id="selectAiChatSessionList"
             parameterType="com.egg.commerce.system.domain.ai.chat.AiChatSession"
             resultMap="AiChatSessionResult">
@@ -52,6 +55,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by updated_at desc
     </select>
 
+    <!-- 创建新的聊天会话。 -->
     <insert id="insertAiChatSession" parameterType="com.egg.commerce.system.domain.ai.chat.AiChatSession">
         insert into ai_chat_sessions (
             id,
@@ -76,6 +80,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         )
     </insert>
 
+    <!-- 更新会话摘要、消息数和最近消息时间。 -->
     <update id="updateAiChatSession" parameterType="com.egg.commerce.system.domain.ai.chat.AiChatSession">
         update ai_chat_sessions
         set title = #{title},

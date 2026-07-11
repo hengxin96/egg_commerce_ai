@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import java.math.BigDecimal;
 import java.util.Date;
 
+/**
+ * 聊天回答的 RAG 检索来源记录，用于追踪答案引用的知识片段。
+ */
 public class AiChatRetrievalSource
 {
     private String id;

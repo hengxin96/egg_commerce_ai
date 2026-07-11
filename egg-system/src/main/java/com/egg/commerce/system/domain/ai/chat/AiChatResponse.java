@@ -2,6 +2,9 @@ package com.egg.commerce.system.domain.ai.chat;
 
 import java.util.List;
 
+/**
+ * 智能聊天回答返回对象，携带助手答案和本次 RAG 检索来源。
+ */
 public class AiChatResponse
 {
     private String sessionId;

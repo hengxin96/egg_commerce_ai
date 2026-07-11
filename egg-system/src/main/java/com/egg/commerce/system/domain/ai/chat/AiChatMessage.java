@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+/**
+ * 智能聊天消息实体，保存用户或助手内容以及 RAG 来源挂载结果。
+ */
 public class AiChatMessage
 {
     private String id;

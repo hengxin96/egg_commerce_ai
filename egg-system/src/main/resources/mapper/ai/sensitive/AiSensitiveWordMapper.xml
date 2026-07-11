@@ -4,6 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveWordMapper">
 
+    <!-- 敏感词条 SQL 映射，维护敏感词与分类的后台管理查询。 -->
     <resultMap id="AiSensitiveWordResult" type="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord">
         <id property="id" column="id"/>
         <result property="word" column="word"/>
@@ -28,11 +29,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join ai_sensitive_categories c on c.id = w.category_id
     </sql>
 
+    <!-- 按 ID 查询敏感词条详情，并带出分类名称。 -->
     <select id="selectAiSensitiveWordById" parameterType="Long" resultMap="AiSensitiveWordResult">
         <include refid="selectAiSensitiveWordVo"/>
         where w.id = #{id}
     </select>
 
+    <!-- 后台敏感词条列表查询，支持词条、分类和状态筛选。 -->
     <select id="selectAiSensitiveWordList"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord"
             resultMap="AiSensitiveWordResult">
@@ -54,6 +57,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by w.created_at desc
     </select>
 
+    <!-- 新增敏感词条。 -->
     <insert id="insertAiSensitiveWord"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord"
             useGeneratedKeys="true"
@@ -75,6 +79,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         )
     </insert>
 
+    <!-- 更新敏感词内容、分类或状态。 -->
     <update id="updateAiSensitiveWord"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord">
         update ai_sensitive_words
@@ -93,6 +98,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id}
     </update>
 
+    <!-- 批量删除敏感词条。 -->
     <delete id="deleteAiSensitiveWordByIds" parameterType="Long">
         delete from ai_sensitive_words
         where id in

@@ -25,12 +25,18 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 智能聊天服务测试，覆盖 RAG 回答落库、来源持久化和会话归属校验。
+ */
 class AiChatServiceImplTest
 {
     private static final String SESSION_ID = "11111111-1111-1111-1111-111111111111";
 
     private static final String DOCUMENT_ID = "22222222-2222-2222-2222-222222222222";
 
+    /**
+     * 验证发送消息时会同时保存用户消息、助手消息和检索来源元数据。
+     */
     @Test
     void sendMessageStoresUserAssistantAndSourcesWithMetadata()
     {
@@ -64,6 +70,9 @@ class AiChatServiceImplTest
         assertEquals(2, sessionMapper.sessions.get(SESSION_ID).getMessageCount());
     }
 
+    /**
+     * 验证缺失或不归属的会话不会写入任何聊天数据。
+     */
     @Test
     void sendMessageRejectsMissingSessionBeforeSaving()
     {
@@ -83,6 +92,9 @@ class AiChatServiceImplTest
         assertTrue(sourceMapper.inserted.isEmpty());
     }
 
+    /**
+     * 验证历史消息接口会为助手消息挂载已经持久化的 RAG 来源。
+     */
     @Test
     void selectMessagesAttachesPersistedSourcesForAssistantMessages()
     {
@@ -136,12 +148,18 @@ class AiChatServiceImplTest
     {
         private final Map<String, AiChatSession> sessions = new LinkedHashMap<>();
 
+        /**
+         * 从内存 Map 中按 ID 返回会话，模拟数据库查询。
+         */
         @Override
         public AiChatSession selectAiChatSessionById(String id)
         {
             return sessions.get(id);
         }
 
+        /**
+         * 按用户 ID 过滤内存会话列表。
+         */
         @Override
         public List<AiChatSession> selectAiChatSessionList(AiChatSession query)
         {
@@ -156,6 +174,9 @@ class AiChatServiceImplTest
             return list;
         }
 
+        /**
+         * 将新会话写入内存 Map。
+         */
         @Override
         public int insertAiChatSession(AiChatSession session)
         {
@@ -163,6 +184,9 @@ class AiChatServiceImplTest
             return 1;
         }
 
+        /**
+         * 用最新会话对象覆盖内存 Map 中的旧值。
+         */
         @Override
         public int updateAiChatSession(AiChatSession session)
         {
@@ -177,12 +201,18 @@ class AiChatServiceImplTest
 
         private final List<AiChatMessage> messagesBySession = new ArrayList<>();
 
+        /**
+         * 返回测试预置的会话消息列表。
+         */
         @Override
         public List<AiChatMessage> selectAiChatMessageListBySessionId(String sessionId)
         {
             return messagesBySession;
         }
 
+        /**
+         * 捕获服务层插入的聊天消息。
+         */
         @Override
         public int insertAiChatMessage(AiChatMessage message)
         {
@@ -197,12 +227,18 @@ class AiChatServiceImplTest
 
         private final Map<String, List<AiChatRetrievalSource>> sourcesByMessageId = new LinkedHashMap<>();
 
+        /**
+         * 返回指定消息预置的检索来源列表。
+         */
         @Override
         public List<AiChatRetrievalSource> selectAiChatRetrievalSourceListByMessageId(String messageId)
         {
             return sourcesByMessageId.getOrDefault(messageId, Collections.emptyList());
         }
 
+        /**
+         * 捕获服务层插入的检索来源记录。
+         */
         @Override
         public int insertAiChatRetrievalSource(AiChatRetrievalSource source)
         {
@@ -213,12 +249,18 @@ class AiChatServiceImplTest
 
     private static class FakeVectorStore implements AiVectorStoreService
     {
+        /**
+         * 聊天测试不需要写入向量，返回空 ID 列表。
+         */
         @Override
         public List<String> addKnowledgeChunks(String documentId, String fileName, List<AiDocumentChunk> chunks)
         {
             return Collections.emptyList();
         }
 
+        /**
+         * 返回固定检索来源，驱动聊天服务保存 RAG 来源。
+         */
         @Override
         public List<AiVectorRecord> search(String query, int topK, double minScore)
         {
@@ -235,6 +277,9 @@ class AiChatServiceImplTest
             return List.of(record);
         }
 
+        /**
+         * 聊天测试不覆盖删除向量行为。
+         */
         @Override
         public void deleteVectors(List<String> vectorIds)
         {
@@ -245,11 +290,17 @@ class AiChatServiceImplTest
     {
         private final String answer;
 
+        /**
+         * 固定模型回答，便于断言服务层持久化结果。
+         */
         private FakeChatModel(String answer)
         {
             this.answer = answer;
         }
 
+        /**
+         * 返回固定答案，避免测试依赖真实模型调用。
+         */
         @Override
         public String generateAnswer(String question, List<AiVectorRecord> sources)
         {

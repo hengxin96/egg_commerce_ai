@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
+import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDownloadUrl;
 import com.egg.commerce.system.mapper.ai.knowledge.AiKnowledgeDocumentMapper;
 import com.egg.commerce.system.service.ai.knowledge.impl.AiKnowledgeDocumentServiceImpl;
 import com.egg.commerce.system.service.ai.rag.AiDocumentChunk;
@@ -15,6 +16,10 @@ import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -24,8 +29,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 知识库文档服务测试，覆盖上传校验、下载地址、重试和清理流程。
+ */
 class AiKnowledgeDocumentServiceImplTest
 {
+    /**
+     * 验证单文件上传会创建处理中记录并启动向量化。
+     */
     @Test
     void uploadCreatesProcessingDocumentAndStartsVectorization()
     {
@@ -48,6 +59,32 @@ class AiKnowledgeDocumentServiceImplTest
         assertTrue(mapper.documents.containsKey(document.getId()));
     }
 
+    /**
+     * 验证批量上传会为每个合法文件创建文档记录。
+     */
+    @Test
+    void uploadBatchCreatesDocumentForEachAcceptedFile()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+
+        List<AiKnowledgeDocument> documents = service.uploadBatch(new MultipartFile[] {
+                new MockMultipartFile("files", "rules.pdf", "application/pdf", "pdf".getBytes()),
+                new MockMultipartFile("files", "guide.md", "text/markdown", "markdown".getBytes())
+        }, 100L);
+
+        assertEquals(2, documents.size());
+        assertEquals(2, mapper.documents.size());
+        assertEquals(List.of("rules.pdf", "guide.md"), vectorization.startedFileNames);
+    }
+
+    /**
+     * 验证空文件会在进入存储前被拒绝。
+     */
     @Test
     void uploadRejectsEmptyFile()
     {
@@ -64,6 +101,76 @@ class AiKnowledgeDocumentServiceImplTest
         assertEquals("知识库文件不能为空", exception.getMessage());
     }
 
+    /**
+     * 验证不支持的知识库文件扩展名会被拒绝。
+     */
+    @Test
+    void uploadRejectsUnsupportedKnowledgeFileExtension()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> service.upload(new MockMultipartFile("file", "video.mp4", "video/mp4", "video".getBytes()),
+                        100L));
+
+        assertEquals("仅支持上传 pdf、doc、docx、md、xls、xlsx、txt 格式的知识库文件", exception.getMessage());
+        assertTrue(mapper.documents.isEmpty());
+    }
+
+    /**
+     * 验证超过 100MB 的知识库文件会被拒绝。
+     */
+    @Test
+    void uploadRejectsKnowledgeFileLargerThan100Mb()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+
+        MultipartFile oversizedFile = new SizedMultipartFile("huge.pdf", "application/pdf", 100L * 1024L * 1024L + 1L);
+        ServiceException exception = assertThrows(ServiceException.class, () -> service.upload(oversizedFile, 100L));
+
+        assertEquals("知识库文件不能超过 100MB", exception.getMessage());
+        assertTrue(mapper.documents.isEmpty());
+    }
+
+    /**
+     * 验证下载地址查询只返回文档 ID、文件名和 OSS 地址。
+     */
+    @Test
+    void selectDownloadUrlsReturnsStoredOssUrlsForExistingDocuments()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+        AiKnowledgeDocument existing = new AiKnowledgeDocument();
+        existing.setId("doc-1");
+        existing.setFileName("rules.pdf");
+        existing.setOssUrl("https://example.com/knowledge/rules.pdf");
+        mapper.documents.put(existing.getId(), existing);
+
+        List<AiKnowledgeDownloadUrl> urls = service.selectDownloadUrls(new String[] { "doc-1" });
+
+        assertEquals(1, urls.size());
+        assertEquals("doc-1", urls.get(0).getId());
+        assertEquals("rules.pdf", urls.get(0).getFileName());
+        assertEquals("https://example.com/knowledge/rules.pdf", urls.get(0).getUrl());
+    }
+
+    /**
+     * 验证重试向量化会把失败文档重置为处理中状态。
+     */
     @Test
     void retryVectorizationResetsExistingDocumentToProcessing()
     {
@@ -89,6 +196,9 @@ class AiKnowledgeDocumentServiceImplTest
         assertEquals("rules.txt", vectorization.startedFileName);
     }
 
+    /**
+     * 验证删除文档前会先清理向量和 OSS 源对象。
+     */
     @Test
     void deleteRemovesVectorsAndOssObjectBeforeMetadata()
     {
@@ -116,12 +226,18 @@ class AiKnowledgeDocumentServiceImplTest
     {
         private final Map<String, AiKnowledgeDocument> documents = new LinkedHashMap<>();
 
+        /**
+         * 从内存 Map 中按 ID 返回文档。
+         */
         @Override
         public AiKnowledgeDocument selectAiKnowledgeDocumentById(String id)
         {
             return documents.get(id);
         }
 
+        /**
+         * 按 ID 数组返回存在的文档列表。
+         */
         @Override
         public List<AiKnowledgeDocument> selectAiKnowledgeDocumentByIds(String[] ids)
         {
@@ -137,12 +253,18 @@ class AiKnowledgeDocumentServiceImplTest
             return selected;
         }
 
+        /**
+         * 返回所有内存文档，测试中不额外模拟查询条件。
+         */
         @Override
         public List<AiKnowledgeDocument> selectAiKnowledgeDocumentList(AiKnowledgeDocument query)
         {
             return new ArrayList<>(documents.values());
         }
 
+        /**
+         * 捕获新插入的知识库文档记录。
+         */
         @Override
         public int insertAiKnowledgeDocument(AiKnowledgeDocument document)
         {
@@ -150,6 +272,9 @@ class AiKnowledgeDocumentServiceImplTest
             return 1;
         }
 
+        /**
+         * 用最新文档对象覆盖内存记录。
+         */
         @Override
         public int updateAiKnowledgeDocument(AiKnowledgeDocument document)
         {
@@ -157,6 +282,9 @@ class AiKnowledgeDocumentServiceImplTest
             return 1;
         }
 
+        /**
+         * 从内存 Map 删除指定文档并返回删除数量。
+         */
         @Override
         public int deleteAiKnowledgeDocumentByIds(String[] ids)
         {
@@ -176,6 +304,9 @@ class AiKnowledgeDocumentServiceImplTest
     {
         private final List<String> deletedObjectKeys = new ArrayList<>();
 
+        /**
+         * 返回固定 OSS 元数据，避免测试访问真实对象存储。
+         */
         @Override
         public AiStoredObject uploadKnowledgeFile(MultipartFile file)
         {
@@ -188,6 +319,9 @@ class AiKnowledgeDocumentServiceImplTest
             return storedObject;
         }
 
+        /**
+         * 记录服务层请求删除的对象键。
+         */
         @Override
         public void deleteObject(String objectKey)
         {
@@ -199,18 +333,27 @@ class AiKnowledgeDocumentServiceImplTest
     {
         private List<String> deletedVectorIds = new ArrayList<>();
 
+        /**
+         * 文档服务测试不覆盖向量写入，返回空 ID 列表。
+         */
         @Override
         public List<String> addKnowledgeChunks(String documentId, String fileName, List<AiDocumentChunk> chunks)
         {
             return Collections.emptyList();
         }
 
+        /**
+         * 文档服务测试不覆盖检索行为。
+         */
         @Override
         public List<AiVectorRecord> search(String query, int topK, double minScore)
         {
             return Collections.emptyList();
         }
 
+        /**
+         * 记录服务层请求删除的向量 ID。
+         */
         @Override
         public void deleteVectors(List<String> vectorIds)
         {
@@ -224,18 +367,97 @@ class AiKnowledgeDocumentServiceImplTest
 
         private String startedFileName;
 
+        private final List<String> startedFileNames = new ArrayList<>();
+
+        /**
+         * 捕获从上传文件触发的向量化请求。
+         */
         @Override
         public void startVectorization(String documentId, MultipartFile file)
         {
             startedDocumentId = documentId;
             startedFileName = file.getOriginalFilename();
+            startedFileNames.add(startedFileName);
         }
 
+        /**
+         * 捕获从已有文档重试触发的向量化请求。
+         */
         @Override
         public void startVectorization(AiKnowledgeDocument document)
         {
             startedDocumentId = document.getId();
             startedFileName = document.getFileName();
+            startedFileNames.add(startedFileName);
+        }
+    }
+
+    private static class SizedMultipartFile implements MultipartFile
+    {
+        private final String originalFilename;
+
+        private final String contentType;
+
+        private final long size;
+
+        /**
+         * 构造只覆盖大小判断的 MultipartFile 测试桩。
+         */
+        private SizedMultipartFile(String originalFilename, String contentType, long size)
+        {
+            this.originalFilename = originalFilename;
+            this.contentType = contentType;
+            this.size = size;
+        }
+
+        @Override
+        public String getName()
+        {
+            return "file";
+        }
+
+        @Override
+        public String getOriginalFilename()
+        {
+            return originalFilename;
+        }
+
+        @Override
+        public String getContentType()
+        {
+            return contentType;
+        }
+
+        @Override
+        public boolean isEmpty()
+        {
+            return false;
+        }
+
+        @Override
+        public long getSize()
+        {
+            return size;
+        }
+
+        @Override
+        public byte[] getBytes()
+        {
+            return new byte[0];
+        }
+
+        @Override
+        public InputStream getInputStream()
+        {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        /**
+         * 测试不需要真实落盘，保留空实现。
+         */
+        @Override
+        public void transferTo(File dest) throws IOException, IllegalStateException
+        {
         }
     }
 }

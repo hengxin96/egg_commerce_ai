@@ -15,21 +15,21 @@ egg:
   # AI 电商业务配置
   # 这些配置集中描述第一版必须跑通的 AI 存储、RAG 和模型网关模块。
   # - storage/alioss: 商品原图、AI 生成图、编辑图和导出包都进入阿里 OSS，不能依赖模型临时 URL。
-  # - rag/milvus: RAG 使用 Milvus 保存向量，PostgreSQL 保留业务元数据和 retrieval sources 记录。
+  # - rag/local|milvus: 本地开发默认使用内存向量检索；接入真实 Milvus 时通过 EGG_AI_VECTOR_STORE=milvus 切换。
   # - model-gateway: 文本、视觉理解、图片生成和 Embedding 都走统一模型网关，方便日志、重试、成本和密钥管理。
   ai:
     mock-enabled: ${EGG_AI_MOCK_ENABLED:true}
     storage:
       provider: alioss
       alioss:
-        endpoint: ${EGG_ALIOSS_ENDPOINT:}
-        bucket: ${EGG_ALIOSS_BUCKET:}
+        endpoint: ${EGG_ALIOSS_ENDPOINT:oss-cn-hangzhou.aliyuncs.com}
+        bucket: ${EGG_ALIOSS_BUCKET:zhx-img-test}
         access-key-id: ${EGG_ALIOSS_ACCESS_KEY_ID:}
         access-key-secret: ${EGG_ALIOSS_ACCESS_KEY_SECRET:}
         object-prefix: ${EGG_ALIOSS_OBJECT_PREFIX:ai}
     rag:
       enabled: ${EGG_RAG_ENABLED:true}
-      vector-store: milvus
+      vector-store: ${EGG_AI_VECTOR_STORE:milvus}
       chunk-size: ${EGG_RAG_CHUNK_SIZE:800}
       chunk-overlap: ${EGG_RAG_CHUNK_OVERLAP:120}
       top-k: ${EGG_RAG_TOP_K:6}
@@ -41,15 +41,15 @@ egg:
         username: ${EGG_MILVUS_USERNAME:}
         password: ${EGG_MILVUS_PASSWORD:}
         database: ${EGG_MILVUS_DATABASE:default}
-        collection: ${EGG_MILVUS_COLLECTION:ai_knowledge_vectors}
+        collection: ${EGG_MILVUS_COLLECTION:vector_store}
     model-gateway:
       text:
         provider: ${EGG_MODEL_TEXT_PROVIDER:dashscope}
-        model: ${EGG_MODEL_TEXT_NAME:qwen-plus}
+        model: ${EGG_MODEL_TEXT_NAME:qwen3.7-max}
         api-key: ${EGG_DASHSCOPE_API_KEY:}
       embedding:
         provider: ${EGG_MODEL_EMBEDDING_PROVIDER:dashscope}
-        model: ${EGG_MODEL_EMBEDDING_NAME:text-embedding-v2}
+        model: ${EGG_MODEL_EMBEDDING_NAME:text-embedding-v4}
         api-key: ${EGG_DASHSCOPE_API_KEY:}
 
 # 开发环境配置
@@ -73,7 +73,9 @@ server:
 # 日志配置
 logging:
   level:
+    # 当前com.egg.commerce路径下的日志级别
     com.egg.commerce: debug
+    # spring的日志级别
     org.springframework: warn
 
 # 用户配置
@@ -86,19 +88,34 @@ user:
 
 # Spring配置
 spring:
+  ai:
+    vectorstore:
+      type: ${EGG_AI_VECTOR_STORE:milvus}
+      milvus:
+        # Existing local Milvus collections are managed outside app startup; enable only when a fresh schema must be created.
+        initialize-schema: ${EGG_MILVUS_INITIALIZE_SCHEMA:false}
+        database-name: ${EGG_MILVUS_DATABASE:default}
+        collection-name: ${EGG_MILVUS_COLLECTION:vector_store}
+        embedding-dimension: ${EGG_RAG_EMBEDDING_DIMENSION:1536}
+        client:
+          host: ${EGG_MILVUS_HOST:localhost}
+          port: ${EGG_MILVUS_PORT:19530}
+          username: ${EGG_MILVUS_USERNAME:}
+          password: ${EGG_MILVUS_PASSWORD:}
   # 资源信息
   messages:
     # 国际化资源文件路径
     basename: i18n/messages
+  # 数据库配置，读取druid.yml
   profiles:
     active: druid
   # 文件上传
   servlet:
     multipart:
       # 单个文件大小
-      max-file-size: 10MB
+      max-file-size: 100MB
       # 设置总上传的文件大小
-      max-request-size: 20MB
+      max-request-size: 300MB
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
@@ -151,108 +168,34 @@ mybatis:
 
 # PageHelper分页插件
 pagehelper:
+  # 分页 SQL 按 PostgreSQL 生成
   helperDialect: postgresql
+  # 允许从方法参数读取分页参数
   supportMethodsArguments: true
+  # 分页参数映射
   params: count=countSql
 
-# Springdoc配置
+# Springdoc API文档配置
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
+    # 是否启用 Swagger UI 及访问路径
     enabled: true
     path: /swagger-ui.html
     tags-sorter: alpha
+  # 接口文档分组，现在只扫描 ai 控制器包
   group-configs:
     - group: 'default'
-      display-name: '测试模块'
+      display-name: 'ai模块接口'
       paths-to-match: '/**'
-      packages-to-scan: com.egg.commerce.web.controller.tool
-
-# AI 电商业务配置
-# 这些配置集中描述第一版必须跑通的业务模块。
-# - storage/minio: 商品原图、AI 生成图、编辑图、导出包都必须进入 MinIO，不能依赖模型临时 URL。
-# - task: Redis 保存短期队列、进度、限流和防重复提交；最终结果仍落 PostgreSQL。
-# - rag: RAG 使用 pgvector 保存向量，智能聊天和审核需要记录 retrieval sources。
-# - model-gateway: 文本、视觉理解、图片生成、Embedding、Coze 和后续 A2A 都统一走模型网关，方便日志、重试、成本和密钥管理。
-# - real-image-generation: 第一版必须真实出图；mock 只允许本地开发占位，生产必须关闭。
-# - a2a: A2A 是第一阶段最后开发项，必须等真实出图、RAG、素材、审核和导出闭环稳定后再启用。
-#egg:
-#  ai:
-#    mock-enabled: ${EGG_AI_MOCK_ENABLED:true}
-#    storage:
-#      provider: minio
-#      minio:
-#        endpoint: ${EGG_MINIO_ENDPOINT:http://localhost:9000}
-#        public-endpoint: ${EGG_MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
-#        bucket: ${EGG_MINIO_BUCKET:egg-commerce-assets}
-#        access-key: ${EGG_MINIO_ACCESS_KEY:${EGG_MINIO_ROOT_USER:eggminio}}
-#        secret-key: ${EGG_MINIO_SECRET_KEY:${EGG_MINIO_ROOT_PASSWORD:egg_minio_dev_password}}
-#        presigned-url-expire-minutes: ${EGG_MINIO_PRESIGNED_EXPIRE_MINUTES:30}
-#        object-prefix: ${EGG_MINIO_OBJECT_PREFIX:users}
-#    task:
-#      queue-provider: redis
-#      queue-key: ${EGG_AI_TASK_QUEUE_KEY:ai:task:queue}
-#      progress-key-prefix: ${EGG_AI_TASK_PROGRESS_PREFIX:ai:task:progress:}
-#      duplicate-lock-prefix: ${EGG_AI_DUPLICATE_LOCK_PREFIX:lock:product:}
-#      duplicate-lock-seconds: ${EGG_AI_DUPLICATE_LOCK_SECONDS:600}
-#      user-rate-limit-per-minute: ${EGG_AI_USER_RATE_LIMIT_PER_MINUTE:12}
-#      ip-rate-limit-per-minute: ${EGG_AI_IP_RATE_LIMIT_PER_MINUTE:60}
-#    rag:
-#      enabled: ${EGG_RAG_ENABLED:true}
-#      vector-store: pgvector
-#      chunk-size: ${EGG_RAG_CHUNK_SIZE:800}
-#      chunk-overlap: ${EGG_RAG_CHUNK_OVERLAP:120}
-#      top-k: ${EGG_RAG_TOP_K:6}
-#      min-score: ${EGG_RAG_MIN_SCORE:0.62}
-#      embedding-dimension: ${EGG_RAG_EMBEDDING_DIMENSION:1536}
-#    model-gateway:
-#      timeout-seconds: ${EGG_MODEL_TIMEOUT_SECONDS:120}
-#      max-retries: ${EGG_MODEL_MAX_RETRIES:2}
-#      cost-log-enabled: ${EGG_MODEL_COST_LOG_ENABLED:true}
-#      text:
-#        provider: ${EGG_MODEL_TEXT_PROVIDER:mock}
-#        endpoint: ${EGG_MODEL_TEXT_ENDPOINT:}
-#        model: ${EGG_MODEL_TEXT_NAME:}
-#        api-key: ${EGG_MODEL_TEXT_API_KEY:}
-#      vision:
-#        provider: ${EGG_MODEL_VISION_PROVIDER:mock}
-#        endpoint: ${EGG_MODEL_VISION_ENDPOINT:}
-#        model: ${EGG_MODEL_VISION_NAME:}
-#        api-key: ${EGG_MODEL_VISION_API_KEY:}
-#      image:
-#        provider: ${EGG_MODEL_IMAGE_PROVIDER:mock}
-#        endpoint: ${EGG_MODEL_IMAGE_ENDPOINT:}
-#        model: ${EGG_MODEL_IMAGE_NAME:}
-#        api-key: ${EGG_MODEL_IMAGE_API_KEY:}
-#      embedding:
-#        provider: ${EGG_MODEL_EMBEDDING_PROVIDER:mock}
-#        endpoint: ${EGG_MODEL_EMBEDDING_ENDPOINT:}
-#        model: ${EGG_MODEL_EMBEDDING_NAME:}
-#        api-key: ${EGG_MODEL_EMBEDDING_API_KEY:}
-#      coze:
-#        enabled: ${EGG_COZE_ENABLED:false}
-#        endpoint: ${EGG_COZE_ENDPOINT:https://api.coze.cn}
-#        bot-id: ${EGG_COZE_BOT_ID:}
-#        workflow-id: ${EGG_COZE_WORKFLOW_ID:}
-#        api-key: ${EGG_COZE_API_KEY:}
-#    real-image-generation:
-#      required: true
-#      allow-model-temporary-url: false
-#      persist-generated-image: true
-#      require-product-identity-preservation: true
-#      require-manual-review-for-high-risk: true
-#    a2a:
-#      enabled: ${EGG_A2A_ENABLED:false}
-#      phase: terminal
-#      endpoint: ${EGG_A2A_ENDPOINT:}
-#      api-key: ${EGG_A2A_API_KEY:}
+      packages-to-scan: com.egg.commerce.web.controller.ai
 
 # 防盗链配置
 referer:
   # 防盗链开关
   enabled: false
-  # 允许的域名列表
+  # 允许访问资源的域名列表
   allowed-domains: localhost,127.0.0.1,egg.vip,www.egg.vip
 
 # 防止XSS攻击

@@ -4,6 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.egg.commerce.system.mapper.ai.chat.AiChatRetrievalSourceMapper">
 
+    <!-- 智能聊天检索来源 SQL 映射，负责 RAG 来源查询和落库字段绑定。 -->
     <resultMap id="AiChatRetrievalSourceResult" type="com.egg.commerce.system.domain.ai.chat.AiChatRetrievalSource">
         <id property="id" column="id"/>
         <result property="messageId" column="message_id"/>
@@ -17,6 +18,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
+    <!-- 查询指定助手消息的检索来源，返回给前端做答案溯源。 -->
     <select id="selectAiChatRetrievalSourceListByMessageId" parameterType="String"
             resultMap="AiChatRetrievalSourceResult">
         select id,
@@ -34,6 +36,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by source_rank asc
     </select>
 
+    <!-- 保存回答引用的单条 RAG 来源。 -->
     <insert id="insertAiChatRetrievalSource"
             parameterType="com.egg.commerce.system.domain.ai.chat.AiChatRetrievalSource">
         insert into ai_chat_retrieval_sources (

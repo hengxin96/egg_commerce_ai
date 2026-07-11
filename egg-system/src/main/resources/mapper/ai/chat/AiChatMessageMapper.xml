@@ -4,6 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.egg.commerce.system.mapper.ai.chat.AiChatMessageMapper">
 
+    <!-- 智能聊天消息 SQL 映射，负责消息查询和落库字段绑定。 -->
     <resultMap id="AiChatMessageResult" type="com.egg.commerce.system.domain.ai.chat.AiChatMessage">
         <id property="id" column="id"/>
         <result property="sessionId" column="session_id"/>
@@ -16,6 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
+    <!-- 查询会话消息，按创建时间还原前端聊天顺序。 -->
     <select id="selectAiChatMessageListBySessionId" parameterType="String" resultMap="AiChatMessageResult">
         select id,
                session_id,
@@ -31,6 +33,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by created_at asc
     </select>
 
+    <!-- 保存用户消息或助手消息，RAG 来源记录由独立表维护。 -->
     <insert id="insertAiChatMessage" parameterType="com.egg.commerce.system.domain.ai.chat.AiChatMessage">
         insert into ai_chat_messages (
             id,

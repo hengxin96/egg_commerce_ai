@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Central typed configuration for the first-phase AI commerce modules.
+ * 第一阶段 AI 电商模块的集中式类型化配置。
  */
 @Component
 @ConfigurationProperties(prefix = "egg.ai")

@@ -12,11 +12,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
+/**
+ * 基于 Spring AI 的 Milvus 向量库实现，负责真实知识切片写入、检索和删除。
+ */
 @Service
+@ConditionalOnProperty(name = "egg.ai.rag.vector-store", havingValue = "milvus")
 public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreService
 {
+    private static final int MAX_EMBEDDING_BATCH_SIZE = 10;
+
     private static final String METADATA_DOCUMENT_ID = "documentId";
 
     private static final String METADATA_SOURCE_TITLE = "sourceTitle";
@@ -27,11 +34,17 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
 
     private final VectorStore vectorStore;
 
+    /**
+     * 注入 Spring AI 向量库客户端，真实向量存储由配置选择。
+     */
     public AiSpringMilvusVectorStoreServiceImpl(VectorStore vectorStore)
     {
         this.vectorStore = vectorStore;
     }
 
+    /**
+     * 将知识切片转换为 Spring AI Document 后写入 Milvus。
+     */
     @Override
     public List<String> addKnowledgeChunks(String documentId, String fileName, List<AiDocumentChunk> chunks)
     {
@@ -54,10 +67,25 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
             return List.of();
         }
 
-        vectorStore.add(documents);
+        addDocumentsInBatches(documents);
         return documents.stream().map(Document::getId).toList();
     }
 
+    /**
+     * DashScope embedding 单次最多处理 10 条文本，写入 Milvus 前按模型限制拆批。
+     */
+    private void addDocumentsInBatches(List<Document> documents)
+    {
+        for (int start = 0; start < documents.size(); start += MAX_EMBEDDING_BATCH_SIZE)
+        {
+            int end = Math.min(start + MAX_EMBEDDING_BATCH_SIZE, documents.size());
+            vectorStore.add(documents.subList(start, end));
+        }
+    }
+
+    /**
+     * 按用户问题执行 Milvus 相似度检索，并转换为项目内 RAG 记录。
+     */
     @Override
     public List<AiVectorRecord> search(String query, int topK, double minScore)
     {
@@ -77,6 +105,9 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
                 .toList();
     }
 
+    /**
+     * 删除指定向量 ID，清理文档删除后的可检索内容。
+     */
     @Override
     public void deleteVectors(List<String> vectorIds)
     {
@@ -101,6 +132,9 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
         }
     }
 
+    /**
+     * 为向量文档构建可回溯到知识库文档和切片的元数据。
+     */
     private Map<String, Object> buildMetadata(String documentId, String fileName, AiDocumentChunk chunk)
     {
         Map<String, Object> metadata = new HashMap<>();
@@ -111,6 +145,9 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
         return metadata;
     }
 
+    /**
+     * 将 Spring AI 检索结果转换为项目统一的 RAG 来源记录。
+     */
     private AiVectorRecord toVectorRecord(Document document)
     {
         Map<String, Object> metadata = document.getMetadata();
@@ -126,11 +163,17 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
         return record;
     }
 
+    /**
+     * 兼容不同元数据类型，统一转换为字符串。
+     */
     private String asString(Object value)
     {
         return value == null ? null : String.valueOf(value);
     }
 
+    /**
+     * 兼容数字和字符串形式的切片序号。
+     */
     private Integer asInteger(Object value)
     {
         if (value instanceof Number number)

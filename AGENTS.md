@@ -19,6 +19,6 @@ In particular, preserve these default assumptions unless the constitution is for
 
 When making code changes:
 
-- Add simple comments for non-obvious business logic, AI workflow logic, storage logic, and integration logic.
+- Follow the constitution's Clear Code Comments rule: when generating or changing code, add maintenance comments by default for business logic, AI workflow logic, storage logic, integration logic, and other non-obvious behavior.
 - Add a short, plain-language note to `docs/change-log.md`.
 - Update `docs/feature-map.md` when adding or moving feature code, pages, APIs, tables, or major directories.

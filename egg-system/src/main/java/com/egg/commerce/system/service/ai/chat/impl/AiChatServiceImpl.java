@@ -52,32 +52,26 @@ public class AiChatServiceImpl implements AiChatService
 
     private final double minScore;
 
+    /**
+     * Spring 运行时构造函数，从环境配置读取 RAG 检索数量和最低分数。
+     */
     @Autowired
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
             AiChatMessageMapper chatMessageMapper,
             AiChatRetrievalSourceMapper retrievalSourceMapper,
             AiVectorStoreService vectorStoreService,
             AiChatModelService chatModelService,
-            ObjectMapper objectMapper,
             Environment environment)
     {
         this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
-                objectMapper,
+                new ObjectMapper(),
                 environment.getProperty("egg.ai.rag.top-k", Integer.class, 6),
                 environment.getProperty("egg.ai.rag.min-score", Double.class, 0.62D));
     }
 
-    public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
-            AiChatMessageMapper chatMessageMapper,
-            AiChatRetrievalSourceMapper retrievalSourceMapper,
-            AiVectorStoreService vectorStoreService,
-            AiChatModelService chatModelService,
-            Environment environment)
-    {
-        this(chatSessionMapper, chatMessageMapper, retrievalSourceMapper, vectorStoreService, chatModelService,
-                new ObjectMapper(), environment);
-    }
-
+    /**
+     * 测试构造函数，允许测试注入自定义 JSON 序列化器。
+     */
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
             AiChatMessageMapper chatMessageMapper,
             AiChatRetrievalSourceMapper retrievalSourceMapper,
@@ -89,6 +83,9 @@ public class AiChatServiceImpl implements AiChatService
                 objectMapper, 6, 0.62D);
     }
 
+    /**
+     * 默认测试构造函数，使用本地 ObjectMapper 和默认 RAG 参数。
+     */
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
             AiChatMessageMapper chatMessageMapper,
             AiChatRetrievalSourceMapper retrievalSourceMapper,
@@ -99,6 +96,9 @@ public class AiChatServiceImpl implements AiChatService
                 new ObjectMapper(), 6, 0.62D);
     }
 
+    /**
+     * 完整构造函数，集中设置依赖和 RAG 检索参数。
+     */
     public AiChatServiceImpl(AiChatSessionMapper chatSessionMapper,
             AiChatMessageMapper chatMessageMapper,
             AiChatRetrievalSourceMapper retrievalSourceMapper,
@@ -118,6 +118,9 @@ public class AiChatServiceImpl implements AiChatService
         this.minScore = minScore;
     }
 
+    /**
+     * 查询当前用户的聊天会话列表，避免跨用户读取历史会话。
+     */
     @Override
     public List<AiChatSession> selectSessionList(Long userId)
     {
@@ -126,6 +129,9 @@ public class AiChatServiceImpl implements AiChatService
         return chatSessionMapper.selectAiChatSessionList(query);
     }
 
+    /**
+     * 创建聊天会话并补齐默认标题、状态和时间字段。
+     */
     @Override
     public AiChatSession createSession(Long userId, String title)
     {
@@ -142,6 +148,9 @@ public class AiChatServiceImpl implements AiChatService
         return session;
     }
 
+    /**
+     * 校验会话归属后读取历史消息，并挂载已持久化的 RAG 来源。
+     */
     @Override
     public List<AiChatMessage> selectMessages(String sessionId, Long userId)
     {
@@ -151,6 +160,9 @@ public class AiChatServiceImpl implements AiChatService
         return messages;
     }
 
+    /**
+     * 保存用户问题、执行 RAG 检索、生成助手回答，并持久化答案来源。
+     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AiChatResponse sendMessage(String sessionId, Long userId, String content)
@@ -164,7 +176,7 @@ public class AiChatServiceImpl implements AiChatService
         Date now = new Date();
         chatMessageMapper.insertAiChatMessage(buildUserMessage(sessionId, userId, content, now));
 
-        // Keep the RAG workflow traceable: assistant content and retrieval sources are stored as a single answer unit.
+        // 为保证 RAG 流程可追溯，助手回答和检索来源作为同一回答单元落库。
         List<AiVectorRecord> records = vectorStoreService.search(content, topK, minScore);
         String answer = chatModelService.generateAnswer(content, records);
         AiChatMessage assistantMessage = buildAssistantMessage(sessionId, userId, answer, now);
@@ -181,6 +193,9 @@ public class AiChatServiceImpl implements AiChatService
         return response;
     }
 
+    /**
+     * 统一校验会话存在性和用户归属，避免越权读取或写入聊天记录。
+     */
     private AiChatSession requireOwnedSession(String sessionId, Long userId)
     {
         if (StringUtils.isBlank(sessionId))
@@ -195,6 +210,9 @@ public class AiChatServiceImpl implements AiChatService
         return session;
     }
 
+    /**
+     * 构造用户消息记录，用户消息不标记 RAG 来源。
+     */
     private AiChatMessage buildUserMessage(String sessionId, Long userId, String content, Date createdAt)
     {
         AiChatMessage message = new AiChatMessage();
@@ -208,6 +226,9 @@ public class AiChatServiceImpl implements AiChatService
         return message;
     }
 
+    /**
+     * 构造助手消息记录，答案默认来自 RAG 流程并需记录来源。
+     */
     private AiChatMessage buildAssistantMessage(String sessionId, Long userId, String answer, Date createdAt)
     {
         AiChatMessage message = new AiChatMessage();
@@ -221,6 +242,9 @@ public class AiChatServiceImpl implements AiChatService
         return message;
     }
 
+    /**
+     * 将本轮检索命中的知识片段保存为回答来源，支撑前端溯源展示。
+     */
     private List<AiChatRetrievalSource> insertRetrievalSources(String messageId, List<AiVectorRecord> records, Date now)
     {
         List<AiChatRetrievalSource> sources = new ArrayList<>();
@@ -248,7 +272,7 @@ public class AiChatServiceImpl implements AiChatService
         return sources;
     }
 
-    // History responses should reuse the persisted source rows so the API does not depend on caller-provided source data.
+    // 历史消息复用已持久化的来源记录，避免接口依赖调用方传入的来源数据。
     private void attachSources(List<AiChatMessage> messages)
     {
         if (messages == null)
@@ -272,6 +296,9 @@ public class AiChatServiceImpl implements AiChatService
         }
     }
 
+    /**
+     * 将向量库元数据转成 JSON 字符串，方便存入 jsonb 字段。
+     */
     private String writeMetadata(Map<String, Object> metadata)
     {
         try
@@ -285,6 +312,9 @@ public class AiChatServiceImpl implements AiChatService
         }
     }
 
+    /**
+     * 回写会话摘要和消息计数，让会话列表展示最新回答状态。
+     */
     private void updateSessionAfterReply(AiChatSession session, String answer, Date now)
     {
         session.setLastMessagePreview(StringUtils.abbreviate(StringUtils.defaultString(answer), 500));
