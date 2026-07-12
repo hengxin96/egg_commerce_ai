@@ -1,4 +1,4 @@
-﻿# Project Change Log
+# Project Change Log
 
 This file records code and project-document changes in plain language. It is for humans and future AI agents, not for formal release notes.
 
@@ -683,3 +683,269 @@ Main files:
 Notes:
 
 - This is scoped to the front-stage story generation setup. Product image, style replication, backend, admin, billing, tenant, team, payment, and real video behavior were not changed.
+
+### Connected Story Generation To Async Backend Workflow
+
+Author: Codex
+
+What changed:
+
+- Added a single wide `ai_story_tasks` table for story task inputs, node progress, fixed-stage outputs, prompt template snapshots, platform rule snapshots, model snapshots, and failure reasons.
+- Added `ai_story_platform_rules` with published platform profiles/rules for 抖音、快手、视频号、小红书.
+- Added the backend story task service that runs 剧情生成 -> 剧本生成 -> 分镜生成 -> 分镜校验 -> 三视图/场景图 serially in the thread pool.
+- Added DeepSeek-compatible text generation wiring for this story chain, with local mock mode still available.
+- Added Word and Markdown export for story task content.
+- Connected the user story generation page and task center to real backend APIs and dictionary values.
+
+Why:
+
+- The front-stage story generation workflow needs to create real asynchronous backend tasks, update page progress by node, preserve each stage output, and let users view/download completed content.
+
+Main files:
+
+- `sql/ai_story_generation.sql`
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/story/AiStoryTaskController.java`
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/story`
+- `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/story`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/story`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
+- `egg-user-web/src/api/story.js`
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+
+Notes:
+
+- The 三视图/场景图 stage currently generates prompt text only; image generation can be connected later.
+- Prompt templates are read from `ai_prompt_templates`; story generation uses platform name prefixes such as `抖音-` to locate platform-specific story prompts.
+- The current branch was used directly; no new branch was created.
+## 2026-07-12
+
+### Added Front-Stage Phone Login And Auto Registration
+
+Author: Codex
+
+What changed:
+
+- Hid the front-stage “邀请有礼” header button and kept the avatar as the login entry.
+- Reworked the user login page into a phone-only login/register entry with a first-version forgot-password reset flow.
+- Added frontend auth helpers, token storage, route guards for intelligent chat and task center, and action-level login checks for generation buttons.
+- Added backend front-stage auth endpoints for phone login-or-register and password reset without changing the admin login/captcha flow.
+- Mapped `sys_user.user_type` in the Java entity and MyBatis mapper so front-stage users are saved with `user_type = 03`.
+
+Why:
+
+- Front-stage users need a simple phone-based entry before using protected generation, chat, story, and task-center features.
+
+Main files:
+
+- `egg-user-web/src/pages/LoginPage.vue`
+- `egg-user-web/src/api/auth.js`
+- `egg-user-web/src/utils/authGuard.js`
+- `egg-user-web/src/router/index.js`
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/layout/UserShell.vue`
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/system/FrontUserAuthController.java`
+- `egg-framework/src/main/java/com/egg/commerce/framework/web/service/FrontUserAuthService.java`
+- `egg-common/src/main/java/com/egg/commerce/common/core/domain/entity/SysUser.java`
+- `egg-system/src/main/resources/mapper/system/SysUserMapper.xml`
+
+Notes:
+
+- Password rules stay aligned with the current system range: 5 to 20 characters.
+- Forgot-password reset intentionally has no SMS verification in this first version; this should be hardened later.
+
+### Fixed Story Generation Dictionary Select Defaults
+
+Author: Codex
+
+What changed:
+
+- Updated the shared generator workspace to sync select values after async dictionary options are loaded.
+- Updated story generation fallback options so target audience, style, and duration match the current `story_target_audience`, `story_style`, and `story_duration` dictionaries.
+- Added dictionary-load fallback logging and made empty filtered dictionary results fall back to valid story options.
+- Corrected the user-web environment example to use `VITE_API_BASE_URL`, while the story API wrapper remains compatible with the older `VITE_API_BASE` name.
+- Allowed anonymous GET access only to the four story-generation dictionary types needed by the public story page.
+- Added a focused frontend source test for async dictionary option synchronization.
+
+Why:
+
+- The story generation page was still showing fallback values for target audience, style, and duration after the real dictionaries should have loaded.
+- When dictionary requests fail or return unusable data, the page should not show obsolete placeholder values.
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+- `egg-user-web/src/api/story.js`
+- `egg-user-web/.env.example`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+- `egg-framework/src/main/java/com/egg/commerce/framework/config/SecurityConfig.java`
+
+Notes:
+
+- Only `story_platform`, `story_target_audience`, `story_style`, and `story_duration` are publicly readable; other system dictionaries still require authentication.
+
+### Fixed User-Web API Proxy Prefix
+
+Author: Codex
+
+What changed:
+
+- Added a Vite development proxy rewrite so frontend requests under `/api` are forwarded to the backend without the `/api` prefix.
+- Added a focused Vite config source test to keep the proxy rewrite in place.
+
+Why:
+
+- Story generation submitted `/api/ai/story/tasks`, but the backend controller is mounted at `/ai/story/tasks`, so the backend treated `/api/ai/story/tasks` as a missing static resource.
+
+Main files:
+
+- `egg-user-web/vite.config.js`
+- `egg-user-web/vite.config.test.js`
+
+### Fixed Story Generation Model Output And Export Downloads
+
+Author: Codex
+
+What changed:
+
+- Changed the story text-generation bean selection to use `egg.ai.model-gateway.story.provider`, so the story workflow defaults to DeepSeek and only uses mock when story provider is explicitly set to `mock`.
+- Marked the DeepSeek text generator runtime constructor with `@Autowired`, so Spring can create the bean after DeepSeek becomes the default story provider.
+- Added DeepSeek configuration fallback lookup for raw environment variable names and JVM `-D` properties, with a clearer missing-key error message for IDEA local debugging.
+- Updated the local mock text generator so it returns a clear placeholder instead of echoing the full rendered prompt as generated content.
+- Upgraded the managed POI/XMLBeans dependencies and declared `poi-ooxml` directly in `egg-system` for readable Word export.
+- Hardened the user frontend story download API so backend JSON errors are shown as errors instead of being saved as corrupt `.docx` files.
+
+Why:
+
+- Story stages were displaying prompt text because the mock generator was active and echoed the prompt.
+- Enabling DeepSeek by default exposed that the service had two public constructors and no explicit Spring injection constructor.
+- IDEA can run EggApplication in a JVM process that has not inherited newly edited Windows system variables, so the DeepSeek key needs explicit runtime-source diagnostics.
+- Word export could fail at runtime with a missing XMLBeans class, and the frontend saved that JSON error as a Word file.
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/story/impl/AiStoryTaskServiceImpl.java`
+- `egg-user-web/src/api/story.js`
+- `pom.xml`
+- `egg-system/pom.xml`
+- `.env.example`
+
+Notes:
+
+- Runtime environments must set `EGG_MODEL_STORY_PROVIDER=deepseek` and provide `EGG_DEEPSEEK_API_KEY` to generate real content.
+- Existing tasks generated while mock was active still contain mock/prompt-like outputs; create a new story task after restarting with the corrected configuration.
+
+### Fixed Front-Stage Stale Token Handling For Story Generation
+
+Author: Codex
+
+What changed:
+
+- Restricted front-stage login detection to the user frontend's own `User-Token` instead of accepting legacy or admin-style token keys.
+- Added shared authentication-failure detection for backend `401` responses, including the Egg JSON `code=401` shape.
+- Updated story generation requests, polling, and downloads to clear stale local sessions and send users back to login when the backend rejects the token.
+
+Why:
+
+- After a backend or Redis restart, the browser could still hold an old token and the story page looked logged in even though `/ai/story/tasks` was correctly rejected by Spring Security.
+
+Main files:
+
+- `egg-user-web/src/api/auth.js`
+- `egg-user-web/src/api/story.js`
+- `egg-user-web/src/utils/authGuard.js`
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+
+Notes:
+
+- Users who see this once should log in again; the frontend will now clear the stale token instead of repeatedly showing the raw backend authentication error.
+
+## 2026-07-12
+
+### Updated Story Task Viewing And Result Scrolling
+
+Author: Codex
+
+What changed:
+
+- Renamed task-center download actions from `Word` and `MD` to `下载为Word` and `下载为MD`.
+- Changed `查看内容` in the task center to open the generated story content in a dialog, without Word or Markdown download buttons inside the dialog.
+- Constrained story-generation result text boxes so long node output scrolls inside a fixed area instead of growing the whole result panel.
+- Added focused frontend regression tests for the task-center dialog behavior and story result scrolling.
+
+Why:
+
+- Story task details should be reviewed in a focused popup, and long generation output should remain readable without pushing the page layout longer.
+
+Main files:
+
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/pages/TasksPage.test.js`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+- `egg-user-web/src/styles/main.css`
+
+Notes:
+
+- This is scoped to the front-stage task center and story-generation result display. Backend, admin, billing, tenant, team, payment, and real video behavior were not changed.
+
+## 2026-07-13
+
+### Improved Story Generation Live Progress Display
+
+Author: Codex
+
+What changed:
+
+- Changed the story-generation result title to show an in-progress title with a spinning loading icon while a story task is being created or processed.
+- Updated the story page to follow the backend current node immediately, so the top progress stage and selected result panel advance from the input stage to the story-generation stage as soon as the task reaches that node.
+- Expanded single-node story result output to fill the available result canvas and keep long content scrollable inside that fixed area.
+- Added focused frontend regression tests for generating-state title display, result-panel fill behavior, and backend-node-following behavior.
+
+Why:
+
+- Users need clear live feedback while generation is still running, and the page should reflect backend progress without requiring manual stage selection.
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+- `egg-user-web/src/styles/main.css`
+
+Notes:
+
+- This is scoped to the front-stage story-generation workspace. Other pages and backend behavior were not changed.
+
+### Added Story Task Retry From Failed Nodes
+
+Author: Codex
+
+What changed:
+
+- Added `POST /ai/story/tasks/{id}/retry` so failed story-generation tasks can continue in the same task row.
+- Added backend recovery logic that starts from the failed node, or walks back to the nearest node whose upstream output is available.
+- Preserved successful upstream node output while clearing the retry node and dependent downstream node output, prompt snapshots, template snapshots, and failure reason.
+- Added a task-center `重试` action only for failed tasks; processing and completed tasks do not show the retry action.
+- Added backend and frontend regression tests for retry status rules, node recovery, API calls, and task-center display.
+
+Why:
+
+- Users need to recover from model or network failures without recreating the whole story task or losing already generated upstream content.
+
+Main files:
+
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/story/AiStoryTaskController.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/story`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/story/AiStoryTaskServiceImplTest.java`
+- `egg-user-web/src/api/story.js`
+- `egg-user-web/src/api/story.test.js`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/pages/TasksPage.test.js`
+
+Notes:
+
+- Retry reuses the existing `ai_story_tasks` row and does not create retry history records in this iteration.
+- Completed tasks return “当前任务已完成，无需重试”; processing tasks return “任务正在生成中，请稍后”.

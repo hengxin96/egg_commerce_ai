@@ -1,4 +1,4 @@
-﻿# Feature Map
+# Feature Map
 
 This file explains where features live in the repository. It is a navigation map for humans and future AI agents.
 
@@ -56,6 +56,32 @@ Path: `egg-system/src/main/java/com/egg/commerce/system`
 ## Existing Frontend Modules
 
 
+
+### Front-Stage User Auth
+
+Purpose:
+
+- Let front-stage users log in or auto-register with手机号 + 密码.
+- Save first-version front-stage users into `sys_user` with `user_type = 03`, `user_name = nick_name`, and `phonenumber` set to the submitted手机号.
+- Reset forgotten passwords by手机号 + 两次新密码 in phase one.
+- Gate protected front-stage actions before generation, intelligent chat, story generation, and task-center access.
+
+Backend paths:
+
+- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/system/FrontUserAuthController.java`
+- Service: `egg-framework/src/main/java/com/egg/commerce/framework/web/service/FrontUserAuthService.java`
+- User entity: `egg-common/src/main/java/com/egg/commerce/common/core/domain/entity/SysUser.java`
+- User mapper: `egg-system/src/main/resources/mapper/system/SysUserMapper.xml`
+- Table: `sys_user`
+
+Frontend paths:
+
+- Login page: `egg-user-web/src/pages/LoginPage.vue`
+- Auth API/helper: `egg-user-web/src/api/auth.js`
+- Login guard helper: `egg-user-web/src/utils/authGuard.js`
+- Route guard: `egg-user-web/src/router/index.js`
+- Generation action guard: `egg-user-web/src/components/GeneratorWorkspace.vue`
+- Stale-token cleanup for protected story APIs: `egg-user-web/src/api/story.js` and `egg-user-web/src/pages/StoryGenerationPage.vue`
 ### Current Front-Stage Generator Workspace
 
 | Path | Purpose |
@@ -195,8 +221,9 @@ Frontend planned paths:
 
 Purpose:
 
-- Track image generation, style replication, batch refinement, chat, audit, and export tasks.
+- Track image generation, style replication, batch refinement, chat, audit, story generation, and export tasks.
 - Show status, progress, failure reason, retry, and result entry.
+- Failed story-generation tasks expose a front-stage retry action that resumes the same task row instead of creating a new task.
 
 Backend planned paths:
 
@@ -206,7 +233,7 @@ Backend planned paths:
 
 Frontend planned paths:
 
-- User task center: `egg-user-web/src/pages/tasks`
+- User task center: `egg-user-web/src/pages/TasksPage.vue`
 - Task status components: `egg-user-web/src/components/tasks`
 
 ### Product Visual Analysis
@@ -269,6 +296,48 @@ Frontend paths:
 SQL:
 
 - `sql/ai_prompt_template_management.sql`
+
+### Story Generation
+
+Purpose:
+
+- Let front-stage users submit story theme, product information, target platform, target audience, style, and duration.
+- Run the fixed text workflow asynchronously: input -> story -> script -> storyboard -> storyboard check -> visual prompts -> complete.
+- Store task progress and all fixed node outputs in one task row.
+- Retry failed tasks from the failed node or nearest recoverable upstream node while preserving successful upstream outputs.
+- Show completed node content in the generation page and show all generated content in the task center.
+- Export story task content as Word or Markdown.
+
+Backend paths:
+
+- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/story/AiStoryTaskController.java`
+- Retry endpoint: `POST /ai/story/tasks/{id}/retry`
+- Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/story`
+- Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/story`
+- Mapper XML: `egg-system/src/main/resources/mapper/ai/story`
+- Service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/story`
+- Text model gateway: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
+- Prompt template runtime query: `egg-system/src/main/resources/mapper/ai/prompt/AiPromptTemplateMapper.xml`
+
+Frontend paths:
+
+- Story generation page: `egg-user-web/src/pages/StoryGenerationPage.vue`
+- Task center page: `egg-user-web/src/pages/TasksPage.vue`
+- Story API wrapper: `egg-user-web/src/api/story.js`
+- Shared generator workspace: `egg-user-web/src/components/GeneratorWorkspace.vue`
+
+Database:
+
+- Task table: `ai_story_tasks`
+- Platform rule table: `ai_story_platform_rules`
+- Migration/seed script: `sql/ai_story_generation.sql`
+
+Notes:
+
+- The 三视图/场景图 stage currently outputs prompt text only. It does not call an image generation model yet.
+- Story prompt templates remain in `ai_prompt_templates`; category lookup supports the new node names and legacy category names.
+- Platform-specific story prompts are selected by name prefix such as `抖音-`, `快手-`, `视频号-`, and `小红书-`.
+- Story retry clears the retry start node and dependent downstream outputs, prompt snapshots, and template snapshots; earlier successful node outputs stay intact.
 
 ### Style Replication
 
