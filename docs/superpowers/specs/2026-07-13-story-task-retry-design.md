@@ -1,129 +1,143 @@
-# Story Task Retry Design
+# 剧情任务重试功能设计
 
-Date: 2026-07-13
+日期：2026-07-13
 
-## Background
+## 背景
 
-The front-stage task center already shows story-generation tasks, including failed tasks and their current failed node. Users now need a retry action for failed tasks so a task can continue from the failed workflow node without losing already saved upstream content.
+任务中心现在可以看到剧情生成任务，包括失败任务、当前失败节点和失败原因。接下来需要给失败任务增加“重试”能力：用户点击后，不新建任务，而是在原任务上从失败节点继续生成后续内容。
 
-The existing story workflow stores fixed node outputs on `ai_story_tasks`:
+现有剧情任务的数据存储在 `ai_story_tasks` 这张表里。每个固定节点都有自己的输出字段：
 
-- story output
-- script output
-- storyboard output
-- storyboard check output
-- visual prompt output
+- 剧情生成结果：`story_output`
+- 剧本生成结果：`script_output`
+- 分镜生成结果：`storyboard_output`
+- 分镜校验结果：`storyboard_check_output`
+- 三视图/场景图结果：`visual_output`
 
-The retry feature must respect that storage model. It should not create a new task, should not clear earlier successful node output, and should not introduce a separate branch or broader task-center redesign.
+所以重试逻辑必须围绕这张任务表处理，不能把已经成功保存的前序节点内容删掉，也不应该新建一条任务。
 
-## Confirmed Requirements
+## 已确认需求
 
-- Add a retry action in the task center operation column only for failed story tasks.
-- A processing task must not show a clickable retry action in the frontend.
-- The backend must also reject retry for processing tasks with a clear "task is generating, please wait" business message.
-- A completed task retry request must be rejected with a clear "current task is completed, no retry needed" business message.
-- A failed task retry should reuse the same task row and continue the existing workflow.
-- If the failed node already has partial output, clear only that node's output and node metadata before regenerating.
-- Do not clear earlier successful node content.
-- Also clear the failed node's prompt/template snapshot and the task failure reason before retrying.
-- If the failed node cannot run because its upstream output is missing, walk backward to the nearest runnable upstream point. For example, if storyboard generation failed but script output is missing, retry should regenerate script first and then continue to storyboard and later nodes.
-- The retry should run asynchronously like initial task creation.
-- The frontend should refresh task state after starting retry.
+- 任务中心操作列里，只有失败任务显示“重试”按钮。
+- 生成中的任务，前端不显示或不可点击“重试”。
+- 后端也要兜底：如果生成中的任务被调用重试接口，返回“任务正在生成中，请稍后”。
+- 已完成任务不能重试，后端返回“当前任务已完成，无需重试”。
+- 重试失败任务时，继续使用原来的任务记录，不创建新任务。
+- 如果当前失败节点已经保存了部分内容，要清除当前节点内容后重新生成。
+- 只清除需要重试的节点以及依赖它的后续节点，不能清除更早已经成功的节点。
+- 除正文输出外，还要清除对应节点的提示词记录、模板 ID、模板版本、失败原因。
+- 如果当前失败节点的上一个节点内容缺失，就自动往前退，先补齐上游节点，再继续往后生成。
+- 重试和首次生成一样，后端异步执行。
+- 用户点击重试后，前端刷新任务列表，让任务状态变成生成中。
 
-## Recommended Approach
+## 推荐方案
 
-Use a dedicated backend retry API:
+新增一个专门的重试接口：
 
 `POST /ai/story/tasks/{id}/retry`
 
-The controller delegates to `AiStoryTaskService.retryTask(taskId, userId)`. The service validates ownership and status, prepares the failed task for retry, then submits a background execution job that starts from the correct node.
+控制器只负责接收请求和获取当前用户 ID，然后调用：
 
-This is preferred over reusing task creation because retry has different status rules and must preserve upstream outputs in the same task row.
+`AiStoryTaskService.retryTask(taskId, userId)`
 
-## Backend Design
+服务层负责校验任务归属、校验任务状态、计算真正的重试起点、清理对应节点数据，然后提交后台线程继续生成。
 
-### Service Contract
+这个方案比复用“开始生成”接口更清晰，因为“开始生成”是创建新任务，而“重试”是在旧任务上恢复执行，两者规则不同。
 
-Add to `AiStoryTaskService`:
+## 后端设计
+
+### 服务接口
+
+在 `AiStoryTaskService` 增加：
 
 ```java
 AiStoryTask retryTask(String taskId, Long userId);
 ```
 
-Behavior:
+处理规则：
 
-- Validate `taskId` and `userId`.
-- Load the task and verify it belongs to the current user.
-- If `status=completed`, throw a business exception: current task is completed, no retry needed.
-- If `status=processing`, throw a business exception: task is generating, please wait.
-- If `status` is not `failed`, reject with a clear unsupported status message.
-- Resolve the actual retry start node from `currentNode` and available upstream outputs.
-- Clear only the start node output, prompt template id, prompt version, and debug prompt entry.
-- Clear `failureReason` and `completedAt`.
-- Set `status=processing`, keep `currentNode` at the retry start node, update `updatedAt`, and save.
-- Submit an async job that continues from the start node.
-- Return the updated task snapshot.
+- 校验 `taskId` 和 `userId`。
+- 查询任务，并确认任务属于当前用户。
+- 如果任务状态是 `completed`，抛出业务异常：当前任务已完成，无需重试。
+- 如果任务状态是 `processing`，抛出业务异常：任务正在生成中，请稍后。
+- 如果任务状态不是 `failed`，抛出状态不支持重试的业务异常。
+- 根据 `current_node` 和各上游输出字段，计算真正的重试起点。
+- 清理重试起点及其后续节点的输出、模板 ID、模板版本、调试 prompt。
+- 清理 `failure_reason` 和 `completed_at`。
+- 设置任务状态为 `processing`。
+- 把 `current_node` 设置为真正的重试起点。
+- 保存任务。
+- 提交后台线程，从这个节点继续执行到完成。
+- 返回更新后的任务快照给前端。
 
-### Retry Start Resolution
+### 重试起点计算
 
-The workflow dependencies are:
+节点依赖关系如下：
 
-- story stage depends on user input
-- script stage depends on `storyOutput`
-- storyboard stage depends on `scriptOutput`
-- storyboard check stage depends on `storyboardOutput`
-- visual stage depends on `scriptOutput` and `storyboardCheckOutput`
+- “剧情生成”只依赖用户输入。
+- “剧本生成”依赖 `story_output`。
+- “分镜生成”依赖 `script_output`。
+- “分镜校验”依赖 `storyboard_output`。
+- “三视图/场景图”依赖 `script_output` 和 `storyboard_check_output`。
 
-Resolution rule:
+计算规则：
 
-1. Start from the task's `currentNode`.
-2. If the current node is missing its required upstream output, move to the upstream generating node that can produce that missing output.
-3. Repeat until the stage can run from available data.
+1. 先从任务当前的 `current_node` 开始判断。
+2. 如果当前节点所需的上游输出不存在，就往上一个生成节点退。
+3. 一直退到一个可以运行的节点为止。
 
-Examples:
+例子：
 
-- Current node: storyboard generation, `scriptOutput` exists. Retry starts at storyboard generation.
-- Current node: storyboard generation, `scriptOutput` missing, `storyOutput` exists. Retry starts at script generation.
-- Current node: storyboard generation, both `scriptOutput` and `storyOutput` missing. Retry starts at story generation.
-- Current node: visual prompt generation, `storyboardCheckOutput` missing but `storyboardOutput` exists. Retry starts at storyboard check.
+- 当前节点是“分镜生成”，且 `script_output` 存在：从“分镜生成”重试。
+- 当前节点是“分镜生成”，但 `script_output` 为空，`story_output` 存在：从“剧本生成”重试。
+- 当前节点是“分镜生成”，但 `script_output` 和 `story_output` 都为空：从“剧情生成”重试。
+- 当前节点是“三视图/场景图”，但 `storyboard_check_output` 为空，`storyboard_output` 存在：从“分镜校验”重试。
 
-### Execution Flow
+### 执行流程调整
 
-Refactor the existing `executeTask(taskId)` implementation so the core runner can execute from a given node:
+现有 `executeTask(taskId)` 是从头执行完整流程。需要把核心执行逻辑抽出来，支持指定开始节点：
 
 ```java
 executeTaskFrom(taskId, startNode)
 ```
 
-Initial task creation calls it with the first generation stage. Retry calls it with the resolved retry start node.
+首次创建任务时，从“剧情生成”开始执行。
 
-The runner should:
+重试任务时，从计算出来的重试起点开始执行。
 
-- reload the task from the database
-- set processing state
-- load platform rules and base variables
-- run only stages from the start node through completion
-- preserve outputs from stages before the start node
-- mark failed again if a later stage fails
+执行器需要做到：
 
-### Node Cleanup
+- 重新从数据库读取任务。
+- 设置任务为生成中。
+- 读取平台规则，构造基础变量。
+- 只执行从开始节点到完成的后续节点。
+- 保留开始节点之前的成功输出。
+- 如果后续任一节点失败，再次标记为失败，并停在失败节点。
 
-For the resolved start node only:
+### 节点清理规则
 
-- clear its output column
-- clear its prompt template id column
-- clear its prompt version column
-- remove the matching key from `debugPrompts`
+重试时清理“重试起点及其后续节点”，保留更早节点。
 
-Do not clear later-stage outputs unless the retry start node is earlier than them and they would become stale. For example, if retry starts at script generation, clear script, storyboard, storyboard check, and visual outputs, because those downstream outputs depend on the regenerated script. If retry starts at storyboard generation, clear storyboard, storyboard check, and visual outputs, but keep story and script.
+例如：
 
-This preserves only data that remains valid after the retry point.
+- 从“分镜生成”重试：保留剧情和剧本，清除分镜、分镜校验、三视图/场景图。
+- 从“剧本生成”重试：保留剧情，清除剧本、分镜、分镜校验、三视图/场景图。
+- 从“剧情生成”重试：清除剧情、剧本、分镜、分镜校验、三视图/场景图。
 
-## Frontend Design
+每个被清理的节点都要清除：
 
-### API
+- 输出正文
+- prompt 模板 ID
+- prompt 模板版本
+- `debug_prompts` 中对应节点的调试 prompt
 
-Add to `egg-user-web/src/api/story.js`:
+这样可以避免后续节点继续展示依赖旧内容生成的结果。
+
+## 前端设计
+
+### API 封装
+
+在 `egg-user-web/src/api/story.js` 增加：
 
 ```js
 export function retryStoryTask(taskId) {
@@ -133,39 +147,46 @@ export function retryStoryTask(taskId) {
 }
 ```
 
-### Task Center
+### 任务中心
 
-In `TasksPage.vue`:
+在 `TasksPage.vue` 中调整操作列：
 
-- Show the retry action only when `row.status === 'failed'`.
-- Hide retry for `processing` and `completed`.
-- Use a per-task loading map so only the clicked task shows retry loading.
-- After successful retry start, show a success message and reload the task list.
-- On error, show the backend business message.
+- `row.status === 'failed'` 时显示“重试”按钮。
+- `processing` 和 `completed` 不显示“重试”。
+- 点击重试后，只让当前任务的重试按钮进入 loading 状态。
+- 重试接口成功后，提示用户“已开始重试”，并刷新任务列表。
+- 重试接口失败后，展示后端返回的业务错误信息。
 
-## Testing
+## 测试范围
 
-Backend tests:
+### 后端测试
 
-- Failed storyboard task with script output retries from storyboard and preserves story/script outputs.
-- Failed storyboard task missing script output but with story output retries from script generation.
-- Retry clears the retry node metadata and failure reason before generation.
-- Completed task retry is rejected.
-- Processing task retry is rejected.
-- Retry continues through completion when the model succeeds.
+- 分镜生成失败，且剧本内容存在时，重试从分镜生成开始，剧情和剧本内容保持不变。
+- 分镜生成失败，但剧本内容缺失、剧情内容存在时，重试从剧本生成开始。
+- 重试前会清理重试起点及后续节点的输出、模板快照、调试 prompt 和失败原因。
+- 已完成任务重试会被拒绝。
+- 生成中任务重试会被拒绝。
+- 重试成功后，任务可以继续跑到完成。
 
-Frontend tests:
+### 前端测试
 
-- Failed tasks show the retry action.
-- Processing and completed tasks do not show retry.
-- Retry API calls `POST /ai/story/tasks/{id}/retry`.
-- Task center imports and calls `retryStoryTask`.
+- 失败任务显示“重试”按钮。
+- 生成中任务不显示“重试”按钮。
+- 已完成任务不显示“重试”按钮。
+- `retryStoryTask` 调用 `POST /ai/story/tasks/{id}/retry`。
+- 任务中心点击“重试”时会调用 `retryStoryTask`。
 
-## Scope Boundaries
+## 不在本次范围
 
-- No new branch.
-- No new task row for retry.
-- No retry history table in this iteration.
-- No image/video generation changes.
-- No billing, tenant, team, or permission model changes.
-- Update docs/change-log.md and docs/feature-map.md when implementation is completed.
+- 不创建新分支。
+- 不为重试创建新任务。
+- 不新增重试历史表。
+- 不接入真实视频生成。
+- 不改图片生成逻辑。
+- 不做积分、支付、租户、团队空间。
+- 不改整体权限模型。
+
+## 实现完成后需要更新
+
+- `docs/change-log.md`
+- `docs/feature-map.md`
