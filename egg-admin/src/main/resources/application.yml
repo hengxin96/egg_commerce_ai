@@ -47,6 +47,11 @@ egg:
         provider: ${EGG_MODEL_TEXT_PROVIDER:dashscope}
         model: ${EGG_MODEL_TEXT_NAME:qwen3.7-max}
         api-key: ${EGG_DASHSCOPE_API_KEY:}
+      image:
+        provider: ${EGG_MODEL_IMAGE_PROVIDER:dashscope}
+        model: ${EGG_MODEL_IMAGE_NAME:wan2.7-image-pro}
+        endpoint: ${EGG_DASHSCOPE_ENDPOINT:https://dashscope.aliyuncs.com}
+        api-key: ${EGG_DASHSCOPE_API_KEY:}
       embedding:
         provider: ${EGG_MODEL_EMBEDDING_PROVIDER:dashscope}
         model: ${EGG_MODEL_EMBEDDING_NAME:text-embedding-v4}
