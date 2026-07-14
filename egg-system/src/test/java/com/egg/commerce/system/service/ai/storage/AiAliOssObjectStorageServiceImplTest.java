@@ -15,6 +15,7 @@ class AiAliOssObjectStorageServiceImplTest
         assertTrue(hasMethod("uploadGeneratedImage"));
         assertTrue(hasMethod("copyProductImageObject"));
         assertTrue(hasMethod("listProductImageObjects"));
+        assertTrue(hasMethod("downloadObject"));
         assertTrue(hasMethod("deleteObject"));
     }
 

@@ -27,6 +27,9 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
 {
+    /** 商品图 OSS 对象前缀固定为 ai/product-images，便于定时任务只扫描明确命名空间。 */
+    private static final String PRODUCT_IMAGE_OBJECT_PREFIX = "ai/product-images";
+
     private final Environment environment;
 
     /**
@@ -154,10 +157,8 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         List<AiStoredObjectSummary> result = new ArrayList<>();
         try
         {
-            String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(oss.getObjectPrefix(), "ai"), "/");
-            String productImagePrefix = normalizedPrefix + "/product-images/";
             ListObjectsRequest request = new ListObjectsRequest(oss.getBucket());
-            request.setPrefix(productImagePrefix);
+            request.setPrefix(PRODUCT_IMAGE_OBJECT_PREFIX + "/");
             ObjectListing listing = client.listObjects(request);
             while (listing != null)
             {
@@ -298,10 +299,9 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
 
     private String buildProductObjectKey(String objectPrefix, String type, Long userId, String extension)
     {
-        String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(objectPrefix, "ai"), "/");
         StringBuilder objectKey = new StringBuilder();
-        objectKey.append(normalizedPrefix)
-                .append("/product-images/")
+        objectKey.append(PRODUCT_IMAGE_OBJECT_PREFIX)
+                .append("/")
                 .append(type)
                 .append("/")
                 .append(userId == null ? "anonymous" : userId)
