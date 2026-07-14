@@ -370,6 +370,7 @@ class AiProductImageTaskServiceImplTest
 
         @Override public AiProductAsset selectAiProductAssetById(String id) { return asset != null && id.equals(asset.getId()) ? asset : null; }
         @Override public AiProductAsset selectCurrentDraft(Long userId) { return null; }
+        @Override public List<AiProductAsset> selectExpiredDrafts(Date expireBefore) { return List.of(); }
         @Override public List<AiProductAsset> selectVisibleAssetList(AiProductAsset query) { return List.of(); }
         @Override public int insertAiProductAsset(AiProductAsset value) { asset = value; return 1; }
         @Override public int updateAiProductAsset(AiProductAsset value) { asset = value; return 1; }

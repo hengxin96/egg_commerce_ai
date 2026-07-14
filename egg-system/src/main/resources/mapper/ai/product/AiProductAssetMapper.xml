@@ -58,6 +58,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         limit 1
     </select>
 
+    <!-- Only uploaded drafts are disposable; task-backed failed, cancelled, and completed assets are retained. -->
+    <select id="selectExpiredDrafts" resultMap="AiProductAssetResult">
+        <include refid="selectAiProductAssetVo"/>
+        where status = 'draft_uploaded'
+          and visible = false
+          and updated_at &lt; #{expireBefore}
+    </select>
+
     <!-- 商品库只展示当前用户已成功完成且可见的商品资产。 -->
     <select id="selectVisibleAssetList" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAsset"
             resultMap="AiProductAssetResult">

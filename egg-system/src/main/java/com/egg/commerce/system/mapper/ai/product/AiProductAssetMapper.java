@@ -1,6 +1,7 @@
 package com.egg.commerce.system.mapper.ai.product;
 
 import com.egg.commerce.system.domain.ai.product.AiProductAsset;
+import java.util.Date;
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
@@ -14,6 +15,9 @@ public interface AiProductAssetMapper
 
     /** 查询当前用户未开始分析的最新草稿，用于生成页恢复。 */
     AiProductAsset selectCurrentDraft(@Param("userId") Long userId);
+
+    /** Returns stale uploaded drafts that were never moved into task processing. */
+    List<AiProductAsset> selectExpiredDrafts(@Param("expireBefore") Date expireBefore);
 
     /** 查询当前用户可见商品资产列表，商品库只展示成功记录。 */
     List<AiProductAsset> selectVisibleAssetList(AiProductAsset query);

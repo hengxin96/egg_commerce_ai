@@ -204,6 +204,7 @@ class AiProductAssetServiceImplTest
 
         @Override public AiProductAsset selectAiProductAssetById(String id) { return assets.get(id); }
         @Override public AiProductAsset selectCurrentDraft(Long userId) { return assets.values().stream().filter(asset -> userId.equals(asset.getUserId()) && "draft_uploaded".equals(asset.getStatus()) && Boolean.FALSE.equals(asset.getVisible())).findFirst().orElse(null); }
+        @Override public List<AiProductAsset> selectExpiredDrafts(Date expireBefore) { return List.of(); }
         @Override public List<AiProductAsset> selectVisibleAssetList(AiProductAsset query) { return assets.values().stream().filter(asset -> query.getUserId().equals(asset.getUserId()) && Boolean.TRUE.equals(asset.getVisible()) && "completed".equals(asset.getStatus())).collect(Collectors.toList()); }
         @Override public int insertAiProductAsset(AiProductAsset asset) { assets.put(asset.getId(), asset); return 1; }
         @Override public int updateAiProductAsset(AiProductAsset asset) { assets.put(asset.getId(), asset); return 1; }
