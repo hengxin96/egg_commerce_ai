@@ -12,7 +12,7 @@
       :failed-step="failedStep"
       :uploaded-images="uploadedImages"
       :uploading="isUploading"
-      :show-cancel-button="isTaskProcessing"
+      :show-cancel-button="canCancelCurrentTask"
       :prompt-value="workspacePrompt"
       :reset-key="workspaceResetKey"
       :generating="isCreating"
@@ -120,6 +120,7 @@ let pollTimer = null
 const activeStep = computed(() => currentTask.value?.currentNode || '输入')
 const failedStep = computed(() => currentTask.value?.status === 'failed' ? currentTask.value.currentNode : '')
 const isTaskProcessing = computed(() => currentTask.value?.status === 'processing' || isCreating.value)
+const canCancelCurrentTask = computed(() => Boolean(currentTask.value?.id) && currentTask.value.status === 'processing')
 const canDownload = computed(() => currentTask.value?.status === 'completed' && Boolean(generatedImages.value.length))
 const activeStepIndex = computed(() => Math.max(PRODUCT_IMAGE_STEPS.indexOf(activeStep.value), 0))
 const completedSteps = computed(() => {
@@ -218,6 +219,9 @@ async function handleUploadImage(files) {
     }
     await loadDraft(generation)
   } catch (error) {
+    if (generation === requestGeneration.value) {
+      await loadDraft(generation).catch(() => {})
+    }
     if (!handleAuthFailure(error, router)) {
       ElMessage.error(error.message || '上传图片失败')
     }
