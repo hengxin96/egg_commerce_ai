@@ -121,6 +121,7 @@ async function handleCancel() {
 
   await cancelProductImageTask(currentTask.value.id)
   currentTask.value = null
+  // Task-backed cancelled assets stay in history; clearing here is only the page surface.
   currentDraft.value = null
   uploadedImages.value = []
 }
