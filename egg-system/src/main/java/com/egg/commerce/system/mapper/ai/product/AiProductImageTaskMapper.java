@@ -2,6 +2,7 @@ package com.egg.commerce.system.mapper.ai.product;
 
 import com.egg.commerce.system.domain.ai.product.AiProductImageTask;
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 商品图生成任务数据访问接口，对应 ai_product_image_tasks 表。
@@ -19,4 +20,8 @@ public interface AiProductImageTaskMapper
 
     /** 更新商品图任务节点、输出、失败/终止信息和模型快照。 */
     int updateAiProductImageTask(AiProductImageTask task);
+
+    /** Updates a task only while it is in the expected lifecycle state. */
+    int updateAiProductImageTaskIfStatus(@Param("task") AiProductImageTask task,
+            @Param("expectedStatus") String expectedStatus);
 }

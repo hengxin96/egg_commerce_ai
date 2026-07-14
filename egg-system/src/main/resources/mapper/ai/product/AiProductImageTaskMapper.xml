@@ -126,4 +126,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = cast(#{id} as uuid)
           and user_id = #{userId}
     </update>
+
+    <!-- Conditional writes make cancellation win over a stale asynchronous worker. -->
+    <update id="updateAiProductImageTaskIfStatus">
+        update ai_product_image_tasks
+        set product_asset_id = cast(#{task.productAssetId} as uuid),
+            task_type = #{task.taskType}, asset_type = #{task.assetType}, target_platform = #{task.targetPlatform},
+            current_node = #{task.currentNode}, status = #{task.status}, failure_reason = #{task.failureReason},
+            cancel_reason = #{task.cancelReason}, analysis_output = cast(#{task.analysisOutput} as jsonb),
+            planning_output = cast(#{task.planningOutput} as jsonb),
+            generation_output = cast(#{task.generationOutput} as jsonb),
+            debug_prompts = cast(#{task.debugPrompts} as jsonb), dashscope_task_id = #{task.dashscopeTaskId},
+            model_provider = #{task.modelProvider}, model_name = #{task.modelName},
+            model_params = cast(#{task.modelParams} as jsonb), started_at = #{task.startedAt},
+            completed_at = #{task.completedAt}, cancelled_at = #{task.cancelledAt}, updated_at = #{task.updatedAt}
+        where id = cast(#{task.id} as uuid) and user_id = #{task.userId} and status = #{expectedStatus}
+    </update>
 </mapper>

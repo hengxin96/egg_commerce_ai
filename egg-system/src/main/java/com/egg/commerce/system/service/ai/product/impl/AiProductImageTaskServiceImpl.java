@@ -32,9 +32,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Coordinates the persisted product-image generation workflow. */
 @Service
@@ -67,12 +71,35 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
     private final AiImageGenerationService imageGenerationService;
     private final ThreadPoolTaskExecutor taskExecutor;
     private final Environment environment;
+    private final TransactionTemplate transactionTemplate;
+
+    /** Production constructor supplies transactions for worker-side multi-row state changes. */
+    @Autowired
+    public AiProductImageTaskServiceImpl(AiProductImageTaskMapper taskMapper, AiProductAssetMapper assetMapper,
+            AiProductAssetImageMapper imageMapper, AiPromptTemplateMapper promptTemplateMapper,
+            AiObjectStorageService objectStorageService, AiTextGenerationService textGenerationService,
+            AiImageGenerationService imageGenerationService, ThreadPoolTaskExecutor taskExecutor,
+            Environment environment, PlatformTransactionManager transactionManager)
+    {
+        this(taskMapper, assetMapper, imageMapper, promptTemplateMapper, objectStorageService, textGenerationService,
+                imageGenerationService, taskExecutor, environment, new TransactionTemplate(transactionManager));
+    }
 
     public AiProductImageTaskServiceImpl(AiProductImageTaskMapper taskMapper, AiProductAssetMapper assetMapper,
             AiProductAssetImageMapper imageMapper, AiPromptTemplateMapper promptTemplateMapper,
             AiObjectStorageService objectStorageService, AiTextGenerationService textGenerationService,
             AiImageGenerationService imageGenerationService, ThreadPoolTaskExecutor taskExecutor,
             Environment environment)
+    {
+        this(taskMapper, assetMapper, imageMapper, promptTemplateMapper, objectStorageService, textGenerationService,
+                imageGenerationService, taskExecutor, environment, (TransactionTemplate) null);
+    }
+
+    private AiProductImageTaskServiceImpl(AiProductImageTaskMapper taskMapper, AiProductAssetMapper assetMapper,
+            AiProductAssetImageMapper imageMapper, AiPromptTemplateMapper promptTemplateMapper,
+            AiObjectStorageService objectStorageService, AiTextGenerationService textGenerationService,
+            AiImageGenerationService imageGenerationService, ThreadPoolTaskExecutor taskExecutor,
+            Environment environment, TransactionTemplate transactionTemplate)
     {
         this.taskMapper = taskMapper;
         this.assetMapper = assetMapper;
@@ -83,9 +110,11 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         this.imageGenerationService = imageGenerationService;
         this.taskExecutor = taskExecutor;
         this.environment = environment;
+        this.transactionTemplate = transactionTemplate;
     }
 
     @Override
+    @Transactional
     public AiProductImageTask createTask(Long userId, AiProductImageTaskRequest request)
     {
         AiProductAsset asset = validateCreateRequest(userId, request);
@@ -99,6 +128,9 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         task.setTargetPlatform(StringUtils.trim(request.getTargetPlatform()));
         task.setCurrentNode(NODE_INPUT);
         task.setStatus(STATUS_PROCESSING);
+        task.setAnalysisOutput("{}");
+        task.setPlanningOutput("{}");
+        task.setGenerationOutput("{}");
         task.setDebugPrompts("{}");
         task.setModelProvider(modelProvider());
         task.setModelName(modelName());
@@ -111,7 +143,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         asset.setVisible(false);
         asset.setLastTaskId(task.getId());
         asset.setUpdatedAt(now);
-        assetMapper.updateAiProductAsset(asset);
+        updateAsset(asset);
         taskMapper.insertAiProductImageTask(task);
         taskExecutor.submit(() -> executeTask(task.getId()));
         return task;
@@ -134,6 +166,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
     }
 
     @Override
+    @Transactional
     public AiProductImageTask retryTask(String taskId, Long userId)
     {
         AiProductImageTask task = requireOwnedTask(taskId, userId);
@@ -160,18 +193,19 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         task.setStatus(STATUS_PROCESSING);
         task.setFailureReason(null);
         task.setCompletedAt(null);
-        saveTask(task);
+        saveTaskIfStatus(task, STATUS_FAILED);
 
         AiProductAsset asset = requireOwnedAsset(userId, task.getProductAssetId());
         asset.setStatus(STATUS_PROCESSING);
         asset.setVisible(false);
         asset.setUpdatedAt(new Date());
-        assetMapper.updateAiProductAsset(asset);
+        updateAsset(asset);
         taskExecutor.submit(() -> executeTaskFrom(task.getId(), startNode));
         return task;
     }
 
     @Override
+    @Transactional
     public AiProductImageTask cancelTask(String taskId, Long userId)
     {
         AiProductImageTask task = requireOwnedTask(taskId, userId);
@@ -184,13 +218,13 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         task.setCancelReason("用户已终止任务");
         task.setCancelledAt(now);
         task.setUpdatedAt(now);
-        taskMapper.updateAiProductImageTask(task);
+        saveTaskIfStatus(task, STATUS_PROCESSING);
 
         AiProductAsset asset = requireOwnedAsset(userId, task.getProductAssetId());
         asset.setStatus(STATUS_CANCELLED);
         asset.setVisible(false);
         asset.setUpdatedAt(now);
-        assetMapper.updateAiProductAsset(asset);
+        updateAsset(asset);
         return task;
     }
 
@@ -211,7 +245,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         {
             task.setStatus(STATUS_PROCESSING);
             task.setStartedAt(task.getStartedAt() == null ? new Date() : task.getStartedAt());
-            saveTask(task);
+            saveTaskIfStatus(task, STATUS_PROCESSING);
             if (NODE_ANALYSIS.equals(startNode))
             {
                 runAnalysisStage(task);
@@ -239,7 +273,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         beginStage(task, NODE_ANALYSIS);
         String output = generateText(task, sourceImageSummary(task));
         task.setAnalysisOutput(validJson(output));
-        saveTask(task);
+        saveTaskIfStatus(task, STATUS_PROCESSING);
         ensureNotCancelled(task.getId());
     }
 
@@ -248,8 +282,8 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         ensureNotCancelled(task.getId());
         beginStage(task, NODE_PLANNING);
         String output = generateText(task, task.getAnalysisOutput());
-        task.setPlanningOutput(validJson(output));
-        saveTask(task);
+        task.setPlanningOutput(validPlanningJson(output));
+        saveTaskIfStatus(task, STATUS_PROCESSING);
         ensureNotCancelled(task.getId());
     }
 
@@ -257,11 +291,12 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
     {
         ensureNotCancelled(task.getId());
         beginStage(task, NODE_GENERATING);
-        JSONObject planning = parseJson(task.getPlanningOutput());
+        JSONObject planning = validatedPlanning(task.getPlanningOutput());
+        JSONObject imagePrompt = planning.getJSONObject("imagePrompt");
         AiImageGenerationRequest request = new AiImageGenerationRequest();
         request.setStage(NODE_GENERATING);
-        request.setPositivePrompt(planning.getString("positivePrompt"));
-        request.setNegativePrompt(planning.getString("negativePrompt"));
+        request.setPositivePrompt(imagePrompt.getString("positivePrompt"));
+        request.setNegativePrompt(imagePrompt.getString("negativePrompt"));
         request.setReferenceImageUrls(sourceImageUrls(task));
         request.setAspectRatio(asset(task).getAspectRatio());
         request.setQuality(asset(task).getQuality());
@@ -273,6 +308,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         AiStoredObject stored = objectStorageService.uploadGeneratedImage(downloadGeneratedImage(temporaryUrl),
                 fileExtension(temporaryUrl), task.getUserId());
         AiProductAssetImage generated = generatedImage(task, stored);
+        ensureNotCancelled(task.getId());
         imageMapper.insertAiProductAssetImage(generated);
         task.setDashscopeTaskId(result.getTaskId());
         task.setModelProvider(StringUtils.defaultIfBlank(result.getProvider(), modelProvider()));
@@ -282,27 +318,34 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         output.put("ossUrl", stored.getUrl());
         output.put("ossObjectKey", stored.getObjectKey());
         task.setGenerationOutput(output.toJSONString());
-        saveTask(task);
+        saveTaskIfStatus(task, STATUS_PROCESSING);
         ensureNotCancelled(task.getId());
     }
 
     private void completeTask(AiProductImageTask task)
     {
-        ensureNotCancelled(task.getId());
-        Date now = new Date();
-        task.setCurrentNode(NODE_COMPLETE);
-        task.setStatus(STATUS_COMPLETED);
-        task.setCompletedAt(now);
-        task.setUpdatedAt(now);
-        taskMapper.updateAiProductImageTask(task);
-        AiProductAsset asset = asset(task);
-        asset.setStatus(STATUS_COMPLETED);
-        asset.setVisible(true);
-        asset.setUpdatedAt(now);
-        assetMapper.updateAiProductAsset(asset);
+        inTransaction(() -> {
+            ensureNotCancelled(task.getId());
+            Date now = new Date();
+            task.setCurrentNode(NODE_COMPLETE);
+            task.setStatus(STATUS_COMPLETED);
+            task.setCompletedAt(now);
+            task.setUpdatedAt(now);
+            saveTaskIfStatus(task, STATUS_PROCESSING);
+            AiProductAsset asset = asset(task);
+            asset.setStatus(STATUS_COMPLETED);
+            asset.setVisible(true);
+            asset.setUpdatedAt(now);
+            updateAsset(asset);
+        });
     }
 
     private void failTask(AiProductImageTask task, Exception e)
+    {
+        inTransaction(() -> failTaskInTransaction(task, e));
+    }
+
+    private void failTaskInTransaction(AiProductImageTask task, Exception e)
     {
         AiProductImageTask current = taskMapper.selectAiProductImageTaskById(task.getId());
         if (current != null && STATUS_CANCELLED.equals(current.getStatus()))
@@ -312,14 +355,17 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         task.setStatus(STATUS_FAILED);
         task.setFailureReason(StringUtils.abbreviate(StringUtils.defaultIfBlank(e.getMessage(), "商品图任务执行失败"), 500));
         task.setUpdatedAt(new Date());
-        taskMapper.updateAiProductImageTask(task);
+        if (!trySaveTaskIfStatus(task, STATUS_PROCESSING))
+        {
+            return;
+        }
         AiProductAsset asset = assetMapper.selectAiProductAssetById(task.getProductAssetId());
         if (asset != null)
         {
             asset.setStatus(STATUS_FAILED);
             asset.setVisible(false);
             asset.setUpdatedAt(new Date());
-            assetMapper.updateAiProductAsset(asset);
+            updateAsset(asset);
         }
     }
 
@@ -335,9 +381,15 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         AiProductAsset asset = asset(task);
         variables.put("userRequirement", StringUtils.defaultString(asset.getUserRequirement()));
         variables.put("sourceImageAnalysis", StringUtils.defaultString(sourceImageAnalysis));
-        variables.put("platformRules", StringUtils.defaultString(asset.getTargetPlatform()));
-        variables.put("categoryRules", StringUtils.defaultString(asset.getAssetType()));
-        variables.put("modelAdapterRules", modelProvider() + "/" + modelName());
+        variables.put("targetPlatform", StringUtils.defaultString(asset.getTargetPlatform()));
+        variables.put("productCategory", StringUtils.defaultString(asset.getAssetType()));
+        variables.put("modelName", modelName());
+        variables.put("aspectRatio", StringUtils.defaultString(asset.getAspectRatio()));
+        variables.put("clarity", StringUtils.defaultString(asset.getQuality()));
+        variables.put("imageCount", "1");
+        variables.put("platformRules", "Target platform guidance: " + StringUtils.defaultString(asset.getTargetPlatform()));
+        variables.put("categoryRules", "Product category guidance: " + StringUtils.defaultString(asset.getAssetType()));
+        variables.put("modelAdapterRules", "Model adapter: " + modelProvider() + "/" + modelName());
         AiTextGenerationRequest request = new AiTextGenerationRequest();
         request.setStage(task.getCurrentNode());
         request.setPrompt(renderPrompt(template, variables));
@@ -422,13 +474,13 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
     {
         if (NODE_ANALYSIS.equals(startNode))
         {
-            task.setAnalysisOutput(null);
+            task.setAnalysisOutput("{}");
         }
         if (NODE_ANALYSIS.equals(startNode) || NODE_PLANNING.equals(startNode))
         {
-            task.setPlanningOutput(null);
+            task.setPlanningOutput("{}");
         }
-        task.setGenerationOutput(null);
+        task.setGenerationOutput("{}");
         task.setDashscopeTaskId(null);
     }
 
@@ -437,13 +489,13 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         task.setCurrentNode(node);
         task.setStatus(STATUS_PROCESSING);
         task.setFailureReason(null);
-        saveTask(task);
+        saveTaskIfStatus(task, STATUS_PROCESSING);
     }
 
     private void ensureNotCancelled(String taskId)
     {
         AiProductImageTask task = taskMapper.selectAiProductImageTaskById(taskId);
-        if (task == null || STATUS_CANCELLED.equals(task.getStatus()))
+        if (task == null || !STATUS_PROCESSING.equals(task.getStatus()))
         {
             throw new TaskCancelledException();
         }
@@ -541,6 +593,24 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         return parseJson(content).toJSONString();
     }
 
+    private String validPlanningJson(String content)
+    {
+        return validatedPlanning(content).toJSONString();
+    }
+
+    /** Planning must yield usable prompts before the workflow can enter the image-model stage. */
+    private JSONObject validatedPlanning(String content)
+    {
+        JSONObject planning = parseJson(content);
+        JSONObject imagePrompt = planning.getJSONObject("imagePrompt");
+        if (imagePrompt == null || StringUtils.isBlank(imagePrompt.getString("positivePrompt"))
+                || StringUtils.isBlank(imagePrompt.getString("negativePrompt")))
+        {
+            throw new ServiceException("Product image planning output is missing a valid imagePrompt");
+        }
+        return planning;
+    }
+
     private JSONObject parseJson(String content)
     {
         try
@@ -558,10 +628,47 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         }
     }
 
-    private void saveTask(AiProductImageTask task)
+    private void saveTaskIfStatus(AiProductImageTask task, String expectedStatus)
     {
         task.setUpdatedAt(new Date());
-        taskMapper.updateAiProductImageTask(task);
+        if (!trySaveTaskIfStatus(task, expectedStatus))
+        {
+            throw new TaskCancelledException();
+        }
+    }
+
+    private boolean trySaveTaskIfStatus(AiProductImageTask task, String expectedStatus)
+    {
+        normalizeJsonFields(task);
+        return taskMapper.updateAiProductImageTaskIfStatus(task, expectedStatus) == 1;
+    }
+
+    /** JSONB workflow columns are non-null by schema and must retain valid empty values on retry. */
+    private void normalizeJsonFields(AiProductImageTask task)
+    {
+        task.setAnalysisOutput(StringUtils.defaultIfBlank(task.getAnalysisOutput(), "{}"));
+        task.setPlanningOutput(StringUtils.defaultIfBlank(task.getPlanningOutput(), "{}"));
+        task.setGenerationOutput(StringUtils.defaultIfBlank(task.getGenerationOutput(), "{}"));
+        task.setDebugPrompts(StringUtils.defaultIfBlank(task.getDebugPrompts(), "{}"));
+        task.setModelParams(StringUtils.defaultIfBlank(task.getModelParams(), "{}"));
+    }
+
+    private void updateAsset(AiProductAsset asset)
+    {
+        if (assetMapper.updateAiProductAsset(asset) != 1)
+        {
+            throw new ServiceException("Product asset state update failed");
+        }
+    }
+
+    private void inTransaction(Runnable action)
+    {
+        if (transactionTemplate == null)
+        {
+            action.run();
+            return;
+        }
+        transactionTemplate.executeWithoutResult(status -> action.run());
     }
 
     private String templateName(AiProductImageTask task)

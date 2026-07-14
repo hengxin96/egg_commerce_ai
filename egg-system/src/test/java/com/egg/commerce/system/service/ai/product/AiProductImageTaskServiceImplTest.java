@@ -103,6 +103,51 @@ class AiProductImageTaskServiceImplTest
     }
 
     @Test
+    void taskJsonOutputsUseEmptyObjectsWhenCreatedAndRetried()
+    {
+        Fixture fixture = new Fixture();
+        fixture.image.fail = true;
+
+        fixture.service.createTask(1L, fixture.request());
+
+        assertFalse(fixture.tasks.jsonWrites.stream().anyMatch(value -> value == null));
+        assertEquals("{}", fixture.tasks.task.getGenerationOutput());
+
+        fixture.service.retryTask(fixture.tasks.task.getId(), 1L);
+
+        assertFalse(fixture.tasks.jsonWrites.stream().anyMatch(value -> value == null));
+    }
+
+    @Test
+    void planningUsesNestedImagePromptAndRendersRequiredVariables()
+    {
+        Fixture fixture = new Fixture();
+
+        fixture.service.createTask(1L, fixture.request());
+
+        assertTrue(fixture.tasks.task.getPlanningOutput().contains("imagePrompt"));
+        String planningPrompt = fixture.text.prompts.get(1);
+        assertTrue(planningPrompt.contains("douyin"));
+        assertTrue(planningPrompt.contains("main"));
+        assertTrue(planningPrompt.contains("3:4"));
+        assertTrue(planningPrompt.contains("2K"));
+        assertTrue(planningPrompt.contains("mock-product-image-model"));
+    }
+
+    @Test
+    void invalidPlanningOutputFailsBeforeImageGeneration()
+    {
+        Fixture fixture = new Fixture();
+        fixture.text.invalidPlanning = true;
+
+        fixture.service.createTask(1L, fixture.request());
+
+        assertEquals("failed", fixture.tasks.task.getStatus());
+        assertEquals("确认规划", fixture.tasks.task.getCurrentNode());
+        assertEquals(0, fixture.image.calls);
+    }
+
+    @Test
     void cancelProcessingTaskPreventsRetryAndVisibility()
     {
         Fixture fixture = new Fixture();
@@ -210,11 +255,29 @@ class AiProductImageTaskServiceImplTest
     private static class FakeTaskMapper implements AiProductImageTaskMapper
     {
         private AiProductImageTask task;
+        private String persistedStatus;
+        private final List<String> jsonWrites = new ArrayList<>();
 
         @Override public AiProductImageTask selectAiProductImageTaskById(String id) { return task; }
         @Override public List<AiProductImageTask> selectAiProductImageTaskList(AiProductImageTask query) { return task == null ? List.of() : List.of(task); }
-        @Override public int insertAiProductImageTask(AiProductImageTask value) { task = value; return 1; }
-        @Override public int updateAiProductImageTask(AiProductImageTask value) { task = value; return 1; }
+        @Override public int insertAiProductImageTask(AiProductImageTask value) { task = value; persistedStatus = value.getStatus(); recordJson(value); return 1; }
+        @Override public int updateAiProductImageTask(AiProductImageTask value) { task = value; persistedStatus = value.getStatus(); recordJson(value); return 1; }
+        @Override public int updateAiProductImageTaskIfStatus(AiProductImageTask value, String expectedStatus)
+        {
+            if (!expectedStatus.equals(persistedStatus)) return 0;
+            task = value;
+            persistedStatus = value.getStatus();
+            recordJson(value);
+            return 1;
+        }
+        private void recordJson(AiProductImageTask value)
+        {
+            jsonWrites.add(value.getAnalysisOutput());
+            jsonWrites.add(value.getPlanningOutput());
+            jsonWrites.add(value.getGenerationOutput());
+            jsonWrites.add(value.getDebugPrompts());
+            jsonWrites.add(value.getModelParams());
+        }
     }
 
     private static class FakeAssetMapper implements AiProductAssetMapper
@@ -258,7 +321,7 @@ class AiProductImageTaskServiceImplTest
             AiPromptTemplate template = new AiPromptTemplate();
             template.setId("main-template");
             template.setVersion(1);
-            template.setContent("{\"body\":\"{userRequirement} {sourceImageAnalysis} {platformRules} {categoryRules} {modelAdapterRules}\"}");
+            template.setContent("{\"body\":\"{userRequirement} {sourceImageAnalysis} {targetPlatform} {productCategory} {modelName} {aspectRatio} {clarity} {imageCount} {platformRules} {categoryRules} {modelAdapterRules}\"}");
             return template;
         }
     }
@@ -279,16 +342,20 @@ class AiProductImageTaskServiceImplTest
     private static class FakeTextGenerationService implements AiTextGenerationService
     {
         private int calls;
+        private final List<String> prompts = new ArrayList<>();
+        private boolean invalidPlanning;
 
         @Override
         public AiTextGenerationResult generate(AiTextGenerationRequest request)
         {
             calls++;
+            prompts.add(request.getPrompt());
             AiTextGenerationResult result = new AiTextGenerationResult();
             result.setProvider("mock");
             result.setModel("mock-product-image-model");
             result.setContent(calls == 1 ? "{\"sourceImageAnalysis\":\"clean shoe\"}"
-                    : "{\"positivePrompt\":\"red shoe product photo\",\"negativePrompt\":\"blurry\"}");
+                    : invalidPlanning ? "{\"positivePrompt\":\"legacy prompt\"}"
+                            : "{\"imagePrompt\":{\"positivePrompt\":\"red shoe product photo\",\"negativePrompt\":\"blurry\"}}");
             return result;
         }
     }
