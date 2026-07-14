@@ -3,6 +3,7 @@ package com.egg.commerce.system.service.ai.product.impl;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.common.utils.StringUtils;
 import com.egg.commerce.system.domain.ai.product.AiProductAsset;
+import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDetail;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetImage;
 import com.egg.commerce.system.domain.ai.product.AiProductDraftDetail;
@@ -120,6 +121,31 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
     {
         requireUserId(userId);
         return assetDetail(requireOwnedAsset(userId, assetId), userId);
+    }
+
+    @Override
+    public AiProductAssetDownload downloadGeneratedImage(Long userId, String assetId)
+    {
+        // Resolve through the ownership-aware detail path before reading the stored object.
+        AiProductAssetDetail detail = selectAssetDetail(userId, assetId);
+        List<AiProductAssetImage> generatedImages = detail.getGeneratedImages();
+        if (generatedImages == null || generatedImages.isEmpty())
+        {
+            throw new ServiceException("No generated image is available for download");
+        }
+
+        AiProductAssetImage image = generatedImages.get(0);
+        if (StringUtils.isBlank(image.getOssObjectKey()))
+        {
+            throw new ServiceException("Generated image object is unavailable");
+        }
+
+        AiProductAssetDownload download = new AiProductAssetDownload();
+        download.setBytes(objectStorageService.downloadObject(image.getOssObjectKey()));
+        download.setContentType(StringUtils.isBlank(image.getMimeType())
+                ? "application/octet-stream" : image.getMimeType());
+        download.setFileName(downloadFileName(detail.getAsset(), image));
+        return download;
     }
 
     @Override
@@ -248,6 +274,48 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
         image.setCreatedAt(now);
         image.setUpdatedAt(now);
         return image;
+    }
+
+    private String downloadFileName(AiProductAsset asset, AiProductAssetImage image)
+    {
+        String name = asset == null ? null : asset.getName();
+        String safeName = StringUtils.isBlank(name) ? "product-image"
+                : name.replaceAll("[^a-zA-Z0-9_\\-\\u4e00-\\u9fa5]+", "_");
+        if (safeName.isEmpty())
+        {
+            safeName = "product-image";
+        }
+        if (safeName.length() > 100)
+        {
+            safeName = safeName.substring(0, 100);
+        }
+        return safeName + "." + extension(image);
+    }
+
+    private String extension(AiProductAssetImage image)
+    {
+        String mimeType = image.getMimeType();
+        if ("image/jpeg".equalsIgnoreCase(mimeType))
+        {
+            return "jpg";
+        }
+        if ("image/png".equalsIgnoreCase(mimeType))
+        {
+            return "png";
+        }
+        if ("image/webp".equalsIgnoreCase(mimeType))
+        {
+            return "webp";
+        }
+        if ("image/gif".equalsIgnoreCase(mimeType))
+        {
+            return "gif";
+        }
+
+        String objectKey = image.getOssObjectKey();
+        int index = objectKey == null ? -1 : objectKey.lastIndexOf('.');
+        String extension = index < 0 ? "" : objectKey.substring(index + 1);
+        return extension.matches("[A-Za-z0-9]{1,10}") ? extension.toLowerCase() : "bin";
     }
 
     private AiProductAsset requireCurrentDraft(Long userId)

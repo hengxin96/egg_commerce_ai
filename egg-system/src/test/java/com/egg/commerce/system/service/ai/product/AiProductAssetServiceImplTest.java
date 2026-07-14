@@ -1,12 +1,14 @@
 package com.egg.commerce.system.service.ai.product;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.product.AiProductAsset;
+import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDetail;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetImage;
 import com.egg.commerce.system.domain.ai.product.AiProductDraftDetail;
@@ -144,6 +146,23 @@ class AiProductAssetServiceImplTest
         assertTrue(fixture.images.images.isEmpty());
     }
 
+    @Test
+    void downloadGeneratedImageReturnsFirstOwnedGeneratedImage()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("asset", 1L, "completed", true));
+        fixture.images.insertAiProductAssetImage(fixture.image("source", "asset", 1L, "source", "source/a.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("generated-1", "asset", 1L, "generated", "generated/a.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("generated-2", "asset", 1L, "generated", "generated/b.png"));
+
+        AiProductAssetDownload download = fixture.service.downloadGeneratedImage(1L, "asset");
+
+        assertEquals("generated/a.png", fixture.storage.downloadedObjectKey);
+        assertArrayEquals(new byte[] {7, 8}, download.getBytes());
+        assertEquals("image/png", download.getContentType());
+        assertEquals("product.png", download.getFileName());
+    }
+
     private static class Fixture
     {
         private final FakeAssetMapper assets = new FakeAssetMapper();
@@ -210,6 +229,7 @@ class AiProductAssetServiceImplTest
         private int uploadCalls;
         private int copyCalls;
         private boolean failDelete;
+        private String downloadedObjectKey;
         private final List<String> deletedObjectKeys = new ArrayList<>();
 
         @Override public AiStoredObject uploadKnowledgeFile(MultipartFile file) { throw new UnsupportedOperationException(); }
@@ -217,7 +237,7 @@ class AiProductAssetServiceImplTest
         @Override public AiStoredObject uploadGeneratedImage(byte[] bytes, String extension, Long userId) { throw new UnsupportedOperationException(); }
         @Override public AiStoredObject copyProductImageObject(String sourceObjectKey, Long userId) { copyCalls++; return stored("copy/" + sourceObjectKey); }
         @Override public List<AiStoredObjectSummary> listProductImageObjects(Date olderThan) { return List.of(); }
-        @Override public byte[] downloadObject(String objectKey) { throw new UnsupportedOperationException(); }
+        @Override public byte[] downloadObject(String objectKey) { downloadedObjectKey = objectKey; return new byte[] {7, 8}; }
         @Override public void deleteObject(String objectKey) { if (failDelete) { throw new IllegalStateException("oss unavailable"); } deletedObjectKeys.add(objectKey); }
 
         private AiStoredObject stored(String key)

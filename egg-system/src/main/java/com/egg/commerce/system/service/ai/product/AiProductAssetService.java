@@ -1,6 +1,7 @@
 package com.egg.commerce.system.service.ai.product;
 
 import com.egg.commerce.system.domain.ai.product.AiProductAsset;
+import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDetail;
 import com.egg.commerce.system.domain.ai.product.AiProductDraftDetail;
 import java.util.List;
@@ -20,6 +21,8 @@ public interface AiProductAssetService
     List<AiProductAsset> selectVisibleAssets(Long userId);
 
     AiProductAssetDetail selectAssetDetail(Long userId, String assetId);
+
+    AiProductAssetDownload downloadGeneratedImage(Long userId, String assetId);
 
     AiProductAsset renameAsset(Long userId, String assetId, String name);
 
