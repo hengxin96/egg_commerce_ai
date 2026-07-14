@@ -93,6 +93,14 @@ class AiPromptTemplateServiceImplTest
         }
 
         /**
+         * 提示词模板服务测试不涉及商品图运行时模板定位，返回空结果即可。
+         */
+        @Override
+        public AiPromptTemplate selectPublishedTemplateByNameAndCategory(String name, String category)
+        {
+            return null;
+        }
+        /**
          * 捕获服务层准备保存的新增模板。
          */
         @Override

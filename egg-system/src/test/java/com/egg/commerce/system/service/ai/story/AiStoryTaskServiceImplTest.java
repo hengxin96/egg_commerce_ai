@@ -388,6 +388,14 @@ class AiStoryTaskServiceImplTest
         }
 
         /**
+         * 剧情测试不覆盖商品图运行时模板查询。
+         */
+        @Override
+        public AiPromptTemplate selectPublishedTemplateByNameAndCategory(String name, String category)
+        {
+            return null;
+        }
+        /**
          * 构造测试用提示词模板，content 保持和数据库 JSONB 字段一致的 JSON 字符串形态。
          */
         private AiPromptTemplate template(String id, Integer version, String body)
