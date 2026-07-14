@@ -2,12 +2,22 @@ package com.egg.commerce.system.service.ai.storage.impl;
 
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
+import com.aliyun.oss.model.OSSObject;
+import com.aliyun.oss.model.ObjectListing;
+import com.aliyun.oss.model.OSSObjectSummary;
+import com.aliyun.oss.model.ListObjectsRequest;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.common.utils.DateUtils;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
+import com.egg.commerce.system.service.ai.storage.AiStoredObjectSummary;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.env.Environment;
@@ -74,6 +84,142 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
      * 从阿里 OSS 删除指定对象，配合知识库文档删除清理源文件。
      */
     @Override
+    public AiStoredObject uploadProductSourceImage(MultipartFile file, Long userId)
+    {
+        if (file == null || file.isEmpty())
+        {
+            throw new ServiceException("商品源图片不能为空");
+        }
+        String extension = StringUtils.substringAfterLast(StringUtils.defaultString(file.getOriginalFilename()), ".");
+        return uploadProductImage(file, userId, extension, "source");
+    }
+
+    @Override
+    public AiStoredObject uploadGeneratedImage(byte[] bytes, String extension, Long userId)
+    {
+        if (bytes == null || bytes.length == 0)
+        {
+            throw new ServiceException("生成图片不能为空");
+        }
+        AiAliOssSettings oss = requireAliOssConfig();
+        String objectKey = buildGeneratedObjectKey(oss.getObjectPrefix(), userId, extension);
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        try (InputStream inputStream = new ByteArrayInputStream(bytes))
+        {
+            client.putObject(oss.getBucket(), objectKey, inputStream);
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("生成图片上传 OSS 失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+        return buildStoredObject(oss, objectKey, bytes.length, null);
+    }
+
+    @Override
+    public AiStoredObject copyProductImageObject(String sourceObjectKey, Long userId)
+    {
+        if (StringUtils.isBlank(sourceObjectKey))
+        {
+            throw new ServiceException("OSS 对象标识不能为空");
+        }
+        AiAliOssSettings oss = requireAliOssConfig();
+        String extension = StringUtils.substringAfterLast(sourceObjectKey, ".");
+        String objectKey = buildProductSourceObjectKey(oss.getObjectPrefix(), userId, extension);
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        try
+        {
+            client.copyObject(oss.getBucket(), sourceObjectKey, oss.getBucket(), objectKey);
+            long size = client.getObjectMetadata(oss.getBucket(), objectKey).getContentLength();
+            return buildStoredObject(oss, objectKey, size, null);
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("商品图片复制 OSS 失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+    }
+
+    @Override
+    public List<AiStoredObjectSummary> listProductImageObjects(Date olderThan)
+    {
+        AiAliOssSettings oss = requireAliOssConfig();
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        List<AiStoredObjectSummary> result = new ArrayList<>();
+        try
+        {
+            String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(oss.getObjectPrefix(), "ai"), "/");
+            String productImagePrefix = normalizedPrefix + "/product-images/";
+            ListObjectsRequest request = new ListObjectsRequest(oss.getBucket());
+            request.setPrefix(productImagePrefix);
+            ObjectListing listing = client.listObjects(request);
+            while (listing != null)
+            {
+                for (OSSObjectSummary summary : listing.getObjectSummaries())
+                {
+                    if (olderThan == null || summary.getLastModified().before(olderThan))
+                    {
+                        AiStoredObjectSummary item = new AiStoredObjectSummary();
+                        item.setBucket(oss.getBucket());
+                        item.setObjectKey(summary.getKey());
+                        item.setUrl(buildObjectUrl(oss, summary.getKey()));
+                        item.setSize(summary.getSize());
+                        item.setLastModified(summary.getLastModified());
+                        result.add(item);
+                    }
+                }
+                if (!listing.isTruncated())
+                {
+                    break;
+                }
+                request.setMarker(listing.getNextMarker());
+                listing = client.listObjects(request);
+            }
+            return result;
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("商品图片列表读取 OSS 失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+    }
+
+    @Override
+    public byte[] downloadObject(String objectKey)
+    {
+        if (StringUtils.isBlank(objectKey))
+        {
+            throw new ServiceException("OSS 对象标识不能为空");
+        }
+        AiAliOssSettings oss = requireAliOssConfig();
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        try (OSSObject object = client.getObject(oss.getBucket(), objectKey);
+             InputStream inputStream = object.getObjectContent();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream())
+        {
+            inputStream.transferTo(outputStream);
+            return outputStream.toByteArray();
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("OSS 对象下载失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+    }
+
+    @Override
     public void deleteObject(String objectKey)
     {
         if (StringUtils.isBlank(objectKey))
@@ -120,6 +266,67 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
     /**
      * 生成知识库文件对象键，按日期目录和随机 ID 避免文件名冲突。
      */
+    private AiStoredObject uploadProductImage(MultipartFile file, Long userId, String extension, String type)
+    {
+        AiAliOssSettings oss = requireAliOssConfig();
+        String objectKey = buildProductObjectKey(oss.getObjectPrefix(), type, userId, extension);
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        try (InputStream inputStream = file.getInputStream())
+        {
+            client.putObject(oss.getBucket(), objectKey, inputStream);
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("商品源图片上传 OSS 失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+        return buildStoredObject(oss, objectKey, file.getSize(), file.getContentType());
+    }
+
+    private String buildProductSourceObjectKey(String objectPrefix, Long userId, String extension)
+    {
+        return buildProductObjectKey(objectPrefix, "source", userId, extension);
+    }
+
+    private String buildGeneratedObjectKey(String objectPrefix, Long userId, String extension)
+    {
+        return buildProductObjectKey(objectPrefix, "generated", userId, extension);
+    }
+
+    private String buildProductObjectKey(String objectPrefix, String type, Long userId, String extension)
+    {
+        String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(objectPrefix, "ai"), "/");
+        StringBuilder objectKey = new StringBuilder();
+        objectKey.append(normalizedPrefix)
+                .append("/product-images/")
+                .append(type)
+                .append("/")
+                .append(userId == null ? "anonymous" : userId)
+                .append("/")
+                .append(DateUtils.datePath())
+                .append("/")
+                .append(UUID.randomUUID());
+        if (StringUtils.isNotBlank(extension))
+        {
+            objectKey.append(".").append(extension);
+        }
+        return objectKey.toString();
+    }
+
+    private AiStoredObject buildStoredObject(AiAliOssSettings oss, String objectKey, long size, String mimeType)
+    {
+        AiStoredObject storedObject = new AiStoredObject();
+        storedObject.setBucket(oss.getBucket());
+        storedObject.setObjectKey(objectKey);
+        storedObject.setUrl(buildObjectUrl(oss, objectKey));
+        storedObject.setSize(size);
+        storedObject.setMimeType(mimeType);
+        return storedObject;
+    }
+
     private String buildKnowledgeObjectKey(String objectPrefix, String extension)
     {
         String normalizedPrefix = StringUtils.strip(StringUtils.defaultIfBlank(objectPrefix, "ai"), "/");

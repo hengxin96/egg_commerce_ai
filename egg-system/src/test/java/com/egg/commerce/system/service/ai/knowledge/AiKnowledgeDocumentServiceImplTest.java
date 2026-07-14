@@ -16,12 +16,14 @@ import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
+import com.egg.commerce.system.service.ai.storage.AiStoredObjectSummary;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -319,6 +321,50 @@ class AiKnowledgeDocumentServiceImplTest
             return storedObject;
         }
 
+        /**
+         * 知识库测试不覆盖商品源图上传。
+         */
+        @Override
+        public AiStoredObject uploadProductSourceImage(MultipartFile file, Long userId)
+        {
+            throw new UnsupportedOperationException("知识库测试不覆盖商品源图上传");
+        }
+
+        /**
+         * 知识库测试不覆盖生成图上传。
+         */
+        @Override
+        public AiStoredObject uploadGeneratedImage(byte[] bytes, String extension, Long userId)
+        {
+            throw new UnsupportedOperationException("知识库测试不覆盖生成图上传");
+        }
+
+        /**
+         * 知识库测试不覆盖商品图对象复制。
+         */
+        @Override
+        public AiStoredObject copyProductImageObject(String sourceObjectKey, Long userId)
+        {
+            throw new UnsupportedOperationException("知识库测试不覆盖商品图对象复制");
+        }
+
+        /**
+         * 知识库测试不覆盖商品图对象列表。
+         */
+        @Override
+        public List<AiStoredObjectSummary> listProductImageObjects(Date olderThan)
+        {
+            return Collections.emptyList();
+        }
+
+        /**
+         * 知识库测试不覆盖 OSS 对象下载。
+         */
+        @Override
+        public byte[] downloadObject(String objectKey)
+        {
+            throw new UnsupportedOperationException("知识库测试不覆盖 OSS 对象下载");
+        }
         /**
          * 记录服务层请求删除的对象键。
          */
