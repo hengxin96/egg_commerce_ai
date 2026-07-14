@@ -53,6 +53,7 @@ const rewriteResult = shallowRef(null)
 const rewriteDialogVisible = shallowRef(false)
 const workspacePrompt = shallowRef('')
 const workspaceResetKey = shallowRef(0)
+const requestGeneration = shallowRef(0)
 
 const normalizeDraftImages = (draft) => (
   draft?.sourceImages?.map((image) => ({
@@ -63,29 +64,43 @@ const normalizeDraftImages = (draft) => (
   })) || []
 )
 
-async function refreshDraft() {
-  currentDraft.value = await getProductDraft()
+async function refreshDraft(generation = requestGeneration.value) {
+  const draft = await getProductDraft()
+  if (generation !== requestGeneration.value) {
+    return
+  }
+
+  currentDraft.value = draft
   uploadedImages.value = normalizeDraftImages(currentDraft.value)
 }
 
 async function handleUploadImage(files) {
+  const generation = requestGeneration.value
   uploading.value = true
   try {
     for (const file of files) {
-      currentDraft.value = await uploadDraftImage(file)
+      const draft = await uploadDraftImage(file)
+      if (generation !== requestGeneration.value) {
+        return
+      }
+      currentDraft.value = draft
     }
-    await refreshDraft()
+    await refreshDraft(generation)
   } finally {
-    uploading.value = false
+    if (generation === requestGeneration.value) {
+      uploading.value = false
+    }
   }
 }
 
 async function handleRemoveImage(imageId) {
+  const generation = requestGeneration.value
   await deleteDraftImage(imageId)
-  await refreshDraft()
+  await refreshDraft(generation)
 }
 
 async function handleGenerate(form) {
+  const generation = requestGeneration.value
   currentTask.value = await createProductImageTask({
     productAssetId: currentDraft.value?.asset?.id,
     assetType: form.assetType,
@@ -94,15 +109,24 @@ async function handleGenerate(form) {
     quality: form.quality,
     userRequirement: form.prompt
   })
+  if (generation !== requestGeneration.value) {
+    currentTask.value = null
+  }
 }
 
 async function handleRewriteRequirement(form) {
-  rewriteResult.value = await rewriteProductRequirement({
+  const generation = requestGeneration.value
+  const result = await rewriteProductRequirement({
     productAssetId: currentDraft.value?.asset?.id,
     assetType: form.assetType,
     targetPlatform: form.platform,
     userRequirement: form.prompt
   })
+  if (generation !== requestGeneration.value) {
+    return
+  }
+
+  rewriteResult.value = result
   rewriteDialogVisible.value = true
   ElMessage.success(rewriteResult.value?.optimizedRequirement || 'AI 帮写完成')
 }
@@ -122,6 +146,7 @@ async function handleCancel() {
   }
 
   await cancelProductImageTask(currentTask.value.id)
+  requestGeneration.value += 1
   currentTask.value = null
   // Task-backed cancelled assets stay in history; clearing here is only the page surface.
   currentDraft.value = null
