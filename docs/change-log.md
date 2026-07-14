@@ -949,3 +949,37 @@ Notes:
 
 - Retry reuses the existing `ai_story_tasks` row and does not create retry history records in this iteration.
 - Completed tasks return “当前任务已完成，无需重试”; processing tasks return “任务正在生成中，请稍后”.
+
+## 2026-07-15
+
+### Added Full-Category Product Image Generation
+
+Author: Codex
+
+What changed:
+
+- Added the first real full-category product image generation workflow: invisible product drafts, immediate OSS upload, AI analysis/planning/generation nodes, DashScope/Tongyi Wanxiang image generation, AI requirement rewrite, cancellation, retry from failed node, and completion notice.
+- Added product-library storage for successful generated assets, including uploaded source images, selected parameters, generated images, rename, reuse, download, and delete with OSS cleanup.
+- Added task-center support for product image tasks, including node details, failure retry, processing-task cancellation, and generated-image missing-state copy.
+- Added scheduled cleanup for stale draft uploads and orphan product-image OSS objects.
+
+Why:
+
+- Users need the product-image feature to create real downloadable ecommerce images, persist successful results by user, and continue generation from saved product data.
+
+Main files:
+
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/pages/ProductsPage.vue`
+- `egg-user-web/src/pages/ProductDetailPage.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/api/productImage.js`
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/image`
+- `sql/ai_product_image_generation.sql`
+
+Notes:
+
+- Prompt content is read from the existing prompt-template feature; no duplicate prompt template seed data is added here.
+- Manual smoke still requires valid DashScope and Ali OSS credentials plus the product-image SQL migration.

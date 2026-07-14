@@ -339,6 +339,47 @@ Notes:
 - Platform-specific story prompts are selected by name prefix such as `抖音-`, `快手-`, `视频号-`, and `小红书-`.
 - Story retry clears the retry start node and dependent downstream outputs, prompt snapshots, and template snapshots; earlier successful node outputs stay intact.
 
+### 全品类商品图
+
+Purpose:
+
+- Upload product images immediately to backend OSS-backed storage.
+- Analyze product features, produce a visible planning node, and generate real ecommerce product images through DashScope/Tongyi Wanxiang.
+- Persist successful generated assets in the user-owned product library and allow reuse, rename, download, and delete.
+- Show product-image tasks in the task center with node progress, failed-node retry, cancellation, and generated-image status.
+
+Frontend paths:
+
+- Generation page: `egg-user-web/src/pages/ProductImagesPage.vue`
+- Product library: `egg-user-web/src/pages/ProductsPage.vue`
+- Product detail: `egg-user-web/src/pages/ProductDetailPage.vue`
+- Task center: `egg-user-web/src/pages/TasksPage.vue`
+- API wrapper: `egg-user-web/src/api/productImage.js`
+- Shared generator workspace: `egg-user-web/src/components/GeneratorWorkspace.vue`
+
+Backend paths:
+
+- Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/product`
+- Product services: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product`
+- Image generation gateway: `egg-system/src/main/java/com/egg/commerce/system/service/ai/image`
+- OSS storage service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/storage`
+- Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/product`
+- Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/product`
+- Mapper XML: `egg-system/src/main/resources/mapper/ai/product`
+
+Database:
+
+- Product assets: `ai_product_assets`
+- Product images: `ai_product_asset_images`
+- Product image tasks: `ai_product_image_tasks`
+- Migration script: `sql/ai_product_image_generation.sql`
+
+Notes:
+
+- Product-library records remain invisible until generation succeeds.
+- Failed and cancelled task history is retained; cancelled product assets remain invisible and cannot be retried.
+- Stale draft uploads older than 12 hours and product-image OSS objects missing database rows are cleaned by scheduled maintenance.
+
 ### Style Replication
 
 Purpose:
