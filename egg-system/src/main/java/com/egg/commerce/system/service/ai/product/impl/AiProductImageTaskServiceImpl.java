@@ -154,7 +154,16 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
     /** Schedules the worker only after the task row is visible to its independent database connection. */
     private void scheduleTaskExecution(String taskId)
     {
-        Runnable execution = () -> executeTask(taskId);
+        scheduleTaskExecution(() -> executeTask(taskId));
+    }
+
+    private void scheduleTaskExecution(String taskId, String startNode)
+    {
+        scheduleTaskExecution(() -> executeTaskFrom(taskId, startNode));
+    }
+
+    private void scheduleTaskExecution(Runnable execution)
+    {
         if (!TransactionSynchronizationManager.isSynchronizationActive())
         {
             taskExecutor.submit(execution);
@@ -221,7 +230,7 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         asset.setVisible(false);
         asset.setUpdatedAt(new Date());
         updateAsset(asset);
-        taskExecutor.submit(() -> executeTaskFrom(task.getId(), startNode));
+        scheduleTaskExecution(task.getId(), startNode);
         return task;
     }
 

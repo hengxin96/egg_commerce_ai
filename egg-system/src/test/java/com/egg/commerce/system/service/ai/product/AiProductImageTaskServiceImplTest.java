@@ -171,6 +171,43 @@ class AiProductImageTaskServiceImplTest
     }
 
     @Test
+    void retryTaskDefersSchedulingUntilAfterCommit()
+    {
+        RecordingThreadPoolTaskExecutor executor = new RecordingThreadPoolTaskExecutor();
+        Fixture fixture = new Fixture(executor);
+        fixture.image.fail = true;
+
+        TransactionSynchronizationManager.initSynchronization();
+        try
+        {
+            fixture.service.createTask(1L, fixture.request());
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            executor.runLastTask();
+        }
+        finally
+        {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        fixture.image.fail = false;
+        TransactionSynchronizationManager.initSynchronization();
+        try
+        {
+            fixture.service.retryTask(fixture.tasks.task.getId(), 1L);
+
+            assertEquals(1, executor.submissions);
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            assertEquals(2, executor.submissions);
+        }
+        finally
+        {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void cancelProcessingTaskPreventsRetryAndVisibility()
     {
         Fixture fixture = new Fixture();
@@ -283,12 +320,19 @@ class AiProductImageTaskServiceImplTest
     private static class RecordingThreadPoolTaskExecutor extends ThreadPoolTaskExecutor
     {
         private int submissions;
+        private Runnable lastTask;
 
         @Override
         public Future<?> submit(Runnable task)
         {
             submissions++;
+            lastTask = task;
             return CompletableFuture.completedFuture(null);
+        }
+
+        private void runLastTask()
+        {
+            lastTask.run();
         }
     }
 
