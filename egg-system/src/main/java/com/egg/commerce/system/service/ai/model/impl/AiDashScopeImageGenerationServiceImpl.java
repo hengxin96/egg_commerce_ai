@@ -80,10 +80,11 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         int pollIntervalMillis = environment.getProperty("egg.ai.model-gateway.image.poll-interval-millis",
                 Integer.class, 3000);
         int maxPolls = environment.getProperty("egg.ai.model-gateway.image.max-polls", Integer.class, 80);
+        long deadlineMillis = System.currentTimeMillis() + timeoutSeconds * 1000L;
 
-        JSONObject submitResponse = submitTask(endpoint, apiKey, model, request, timeoutSeconds);
+        JSONObject submitResponse = submitTask(endpoint, apiKey, model, request, secondsUntil(deadlineMillis));
         String taskId = extractTaskId(submitResponse);
-        JSONObject finalResponse = pollTask(endpoint, apiKey, taskId, timeoutSeconds, pollIntervalMillis, maxPolls);
+        JSONObject finalResponse = pollTask(endpoint, apiKey, taskId, deadlineMillis, pollIntervalMillis, maxPolls);
 
         AiImageGenerationResult result = new AiImageGenerationResult();
         result.setProvider(provider);
@@ -136,11 +137,12 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         return sendJson(httpRequest, "DashScope 图片生成任务提交失败");
     }
 
-    private JSONObject pollTask(String endpoint, String apiKey, String taskId, int timeoutSeconds,
+    private JSONObject pollTask(String endpoint, String apiKey, String taskId, long deadlineMillis,
             int pollIntervalMillis, int maxPolls)
     {
         for (int index = 0; index < maxPolls; index++)
         {
+            int timeoutSeconds = secondsUntil(deadlineMillis);
             HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(endpoint + "/api/v1/tasks/" + taskId))
                     .timeout(Duration.ofSeconds(timeoutSeconds))
                     .header("Authorization", "Bearer " + apiKey)
@@ -157,9 +159,29 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
             {
                 throw new ServiceException("DashScope 图片生成失败：" + status);
             }
-            sleep(pollIntervalMillis);
+            if (!isRunningStatus(status))
+            {
+                throw new ServiceException("DashScope 图片生成返回未知状态：" + status);
+            }
+            sleep(Math.min(pollIntervalMillis, Math.max(0L, deadlineMillis - System.currentTimeMillis())));
         }
         throw new ServiceException("DashScope 图片生成超时");
+    }
+
+    private boolean isRunningStatus(String status)
+    {
+        return "PENDING".equalsIgnoreCase(status) || "RUNNING".equalsIgnoreCase(status)
+                || "SUSPENDED".equalsIgnoreCase(status);
+    }
+
+    private int secondsUntil(long deadlineMillis)
+    {
+        long remainingMillis = deadlineMillis - System.currentTimeMillis();
+        if (remainingMillis <= 0)
+        {
+            throw new ServiceException("DashScope 图片生成超时");
+        }
+        return Math.max(1, (int) Math.ceil(remainingMillis / 1000.0d));
     }
 
     private JSONObject sendJson(HttpRequest request, String errorMessage)
@@ -292,7 +314,7 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         return aspectRatio;
     }
 
-    private void sleep(int pollIntervalMillis)
+    private void sleep(long pollIntervalMillis)
     {
         try
         {
