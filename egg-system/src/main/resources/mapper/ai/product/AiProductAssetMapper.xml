@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.product.AiProductAssetMapper">
+
+    <!-- 商品图商品资产 SQL 映射，商品库查询必须按 user_id 隔离。 -->
+    <resultMap id="AiProductAssetResult" type="com.egg.commerce.system.domain.ai.product.AiProductAsset">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="status" column="status"/>
+        <result property="visible" column="visible"/>
+        <result property="assetType" column="asset_type"/>
+        <result property="targetPlatform" column="target_platform"/>
+        <result property="aspectRatio" column="aspect_ratio"/>
+        <result property="quality" column="quality"/>
+        <result property="userRequirement" column="user_requirement"/>
+        <result property="sourceProductId" column="source_product_id"/>
+        <result property="coverImageId" column="cover_image_id"/>
+        <result property="lastTaskId" column="last_task_id"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAiProductAssetVo">
+        select id,
+               user_id,
+               name,
+               status,
+               visible,
+               asset_type,
+               target_platform,
+               aspect_ratio,
+               quality,
+               user_requirement,
+               source_product_id,
+               cover_image_id,
+               last_task_id,
+               created_at,
+               updated_at
+        from ai_product_assets
+    </sql>
+
+    <!-- 根据商品资产 ID 查询记录，服务层负责校验 user_id。 -->
+    <select id="selectAiProductAssetById" parameterType="String" resultMap="AiProductAssetResult">
+        <include refid="selectAiProductAssetVo"/>
+        where id = cast(#{id} as uuid)
+    </select>
+
+    <!-- 查询当前用户最新未开始分析草稿，用于生成页恢复。 -->
+    <select id="selectCurrentDraft" resultMap="AiProductAssetResult">
+        <include refid="selectAiProductAssetVo"/>
+        where user_id = #{userId}
+          and status = 'draft_uploaded'
+          and visible = false
+        order by updated_at desc, created_at desc
+        limit 1
+    </select>
+
+    <!-- 商品库只展示当前用户已成功完成且可见的商品资产。 -->
+    <select id="selectVisibleAssetList" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAsset"
+            resultMap="AiProductAssetResult">
+        <include refid="selectAiProductAssetVo"/>
+        <where>
+            visible = true
+            and status = 'completed'
+            <if test="userId != null">
+                and user_id = #{userId}
+            </if>
+            <if test="assetType != null and assetType != ''">
+                and asset_type = #{assetType}
+            </if>
+            <if test="targetPlatform != null and targetPlatform != ''">
+                and target_platform = #{targetPlatform}
+            </if>
+            <if test="name != null and name != ''">
+                and name like concat('%', #{name}, '%')
+            </if>
+        </where>
+        order by updated_at desc, created_at desc
+    </select>
+
+    <!-- 新增商品资产，首次上传图片时创建不可见草稿。 -->
+    <insert id="insertAiProductAsset" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAsset">
+        insert into ai_product_assets (
+            id, user_id, name, status, visible, asset_type, target_platform, aspect_ratio, quality,
+            user_requirement, source_product_id, cover_image_id, last_task_id, created_at, updated_at
+        ) values (
+            cast(#{id} as uuid), #{userId}, #{name}, #{status}, #{visible}, #{assetType}, #{targetPlatform},
+            #{aspectRatio}, #{quality}, #{userRequirement}, cast(#{sourceProductId} as uuid),
+            cast(#{coverImageId} as uuid), cast(#{lastTaskId} as uuid), #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <!-- 更新商品资产，任务成功时把 visible 改为 true。 -->
+    <update id="updateAiProductAsset" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAsset">
+        update ai_product_assets
+        set name = #{name},
+            status = #{status},
+            visible = #{visible},
+            asset_type = #{assetType},
+            target_platform = #{targetPlatform},
+            aspect_ratio = #{aspectRatio},
+            quality = #{quality},
+            user_requirement = #{userRequirement},
+            source_product_id = cast(#{sourceProductId} as uuid),
+            cover_image_id = cast(#{coverImageId} as uuid),
+            last_task_id = cast(#{lastTaskId} as uuid),
+            updated_at = #{updatedAt}
+        where id = cast(#{id} as uuid)
+    </update>
+
+    <!-- 删除商品资产时必须带 user_id，避免跨用户误删。 -->
+    <delete id="deleteAiProductAssetById">
+        delete from ai_product_assets
+        where id = cast(#{id} as uuid)
+          and user_id = #{userId}
+    </delete>
+</mapper>

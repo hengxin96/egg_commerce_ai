@@ -48,6 +48,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by updated_at desc, created_at desc
     </select>
 
+    <!-- 按模板名称和分类查询最新已发布模板，供商品图主图、详情图和 AI 帮写运行时使用。 -->
+    <select id="selectPublishedTemplateByNameAndCategory" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        where status = 'published'
+          and name = #{name}
+          and category = #{category}
+        order by version desc, updated_at desc, created_at desc
+        limit 1
+    </select>
+
     <!-- 新增提示词模板，正文和变量以 JSONB 形式保存。 -->
     <insert id="insertAiPromptTemplate" parameterType="AiPromptTemplate">
         insert into ai_prompt_templates (
