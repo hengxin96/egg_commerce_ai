@@ -75,6 +75,10 @@ async function refreshDraft(generation = requestGeneration.value) {
 }
 
 async function handleUploadImage(files) {
+  if (uploading.value) {
+    return
+  }
+
   const generation = requestGeneration.value
   uploading.value = true
   try {
@@ -101,7 +105,7 @@ async function handleRemoveImage(imageId) {
 
 async function handleGenerate(form) {
   const generation = requestGeneration.value
-  currentTask.value = await createProductImageTask({
+  const task = await createProductImageTask({
     productAssetId: currentDraft.value?.asset?.id,
     assetType: form.assetType,
     targetPlatform: form.platform,
@@ -110,8 +114,9 @@ async function handleGenerate(form) {
     userRequirement: form.prompt
   })
   if (generation !== requestGeneration.value) {
-    currentTask.value = null
+    return
   }
+  currentTask.value = task
 }
 
 async function handleRewriteRequirement(form) {
@@ -140,13 +145,7 @@ function applyRewriteResult() {
   rewriteDialogVisible.value = false
 }
 
-async function handleCancel() {
-  if (!currentTask.value?.id) {
-    return
-  }
-
-  await cancelProductImageTask(currentTask.value.id)
-  requestGeneration.value += 1
+function clearPageSurface() {
   currentTask.value = null
   // Task-backed cancelled assets stay in history; clearing here is only the page surface.
   currentDraft.value = null
@@ -154,7 +153,19 @@ async function handleCancel() {
   workspacePrompt.value = ''
   rewriteResult.value = null
   rewriteDialogVisible.value = false
+  uploading.value = false
   workspaceResetKey.value += 1
+}
+
+async function handleCancel() {
+  if (!currentTask.value?.id) {
+    return
+  }
+
+  const taskId = currentTask.value.id
+  requestGeneration.value += 1
+  clearPageSurface()
+  await cancelProductImageTask(taskId)
 }
 
 refreshDraft().catch(() => {})
