@@ -6,6 +6,7 @@ const readSource = (path) => readFileSync(new URL(path, import.meta.url), 'utf8'
 
 test('product image page imports real API wrappers', () => {
   const page = readSource('./ProductImagesPage.vue')
+  const workspace = readSource('../components/GeneratorWorkspace.vue')
 
   assert.match(page, /getProductDraft/)
   assert.match(page, /uploadDraftImage/)
@@ -17,6 +18,11 @@ test('product image page imports real API wrappers', () => {
   assert.match(page, /optimizedRequirement/)
   assert.match(page, /applyRewriteResult/)
   assert.match(page, /:prompt-value="workspacePrompt"/)
+  assert.match(page, /workspaceResetKey/)
+  assert.match(page, /:reset-key="workspaceResetKey"/)
+  assert.match(page, /rewriteDialogVisible\.value = false/)
+  assert.match(workspace, /resetKey/)
+  assert.match(workspace, /resetWorkspaceForm/)
   assert.match(page, /currentDraft\.value = null/)
 })
 

@@ -293,6 +293,7 @@ const props = defineProps({
   uploadLabel: { type: String, default: '拖拽或点击上传商品图 / 参考图' },
   steps: { type: Array, default: () => ['输入', '分析中', '确认规划', '生成中', '完成'] },
   promptValue: { type: String, default: '' },
+  resetKey: { type: [String, Number], default: 0 },
   activeStep: { type: String, default: '' },
   selectedStep: { type: String, default: '' },
   completedSteps: { type: Array, default: () => [] },
@@ -439,6 +440,27 @@ watch(
     if (typeof value === 'string' && value !== form.prompt) {
       form.prompt = value
     }
+  }
+)
+
+const resetWorkspaceForm = () => {
+  form.assetType = '主图'
+  form.platform = firstOptionValue(props.platformOptions, '抖音')
+  form.ratio = firstOptionValue(props.ratioOptions, '3:4')
+  form.count = 1
+  form.language = firstOptionValue(props.languageOptions, 'zh-CN')
+  form.model = firstOptionValue(props.modelOptions, 'Nova 2.0')
+  form.quality = '2K'
+  form.prompt = ''
+  form.productInfo = ''
+  localUploadedImages.value.forEach((image) => URL.revokeObjectURL(image.url))
+  localUploadedImages.value = []
+}
+
+watch(
+  () => props.resetKey,
+  () => {
+    resetWorkspaceForm()
   }
 )
 

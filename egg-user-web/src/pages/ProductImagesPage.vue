@@ -8,6 +8,7 @@
     :uploading="uploading"
     :show-cancel-button="Boolean(currentTask)"
     :prompt-value="workspacePrompt"
+    :reset-key="workspaceResetKey"
     @upload-image="handleUploadImage"
     @remove-image="handleRemoveImage"
     @generate="handleGenerate"
@@ -51,6 +52,7 @@ const currentTask = shallowRef(null)
 const rewriteResult = shallowRef(null)
 const rewriteDialogVisible = shallowRef(false)
 const workspacePrompt = shallowRef('')
+const workspaceResetKey = shallowRef(0)
 
 const normalizeDraftImages = (draft) => (
   draft?.sourceImages?.map((image) => ({
@@ -124,6 +126,10 @@ async function handleCancel() {
   // Task-backed cancelled assets stay in history; clearing here is only the page surface.
   currentDraft.value = null
   uploadedImages.value = []
+  workspacePrompt.value = ''
+  rewriteResult.value = null
+  rewriteDialogVisible.value = false
+  workspaceResetKey.value += 1
 }
 
 refreshDraft().catch(() => {})
