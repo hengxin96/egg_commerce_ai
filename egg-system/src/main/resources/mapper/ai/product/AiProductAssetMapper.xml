@@ -65,9 +65,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <where>
             visible = true
             and status = 'completed'
-            <if test="userId != null">
-                and user_id = #{userId}
-            </if>
+            and user_id = #{userId}
             <if test="assetType != null and assetType != ''">
                 and asset_type = #{assetType}
             </if>
@@ -109,6 +107,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             last_task_id = cast(#{lastTaskId} as uuid),
             updated_at = #{updatedAt}
         where id = cast(#{id} as uuid)
+          and user_id = #{userId}
     </update>
 
     <!-- 删除商品资产时必须带 user_id，避免跨用户误删。 -->

@@ -69,9 +69,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             resultMap="AiProductImageTaskResult">
         <include refid="selectAiProductImageTaskVo"/>
         <where>
-            <if test="userId != null">
-                and user_id = #{userId}
-            </if>
+            user_id = #{userId}
             <if test="taskType != null and taskType != ''">
                 and task_type = #{taskType}
             </if>
@@ -106,7 +104,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateAiProductImageTask" parameterType="com.egg.commerce.system.domain.ai.product.AiProductImageTask">
         update ai_product_image_tasks
         set product_asset_id = cast(#{productAssetId} as uuid),
-            user_id = #{userId},
             task_type = #{taskType},
             asset_type = #{assetType},
             target_platform = #{targetPlatform},
@@ -127,5 +124,6 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             cancelled_at = #{cancelledAt},
             updated_at = #{updatedAt}
         where id = cast(#{id} as uuid)
+          and user_id = #{userId}
     </update>
 </mapper>
