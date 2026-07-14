@@ -17,6 +17,7 @@
 
 <script setup>
 import { shallowRef } from 'vue'
+import { ElMessage } from 'element-plus'
 import GeneratorWorkspace from '@/components/GeneratorWorkspace.vue'
 import {
   cancelProductImageTask,
@@ -31,6 +32,7 @@ const uploadedImages = shallowRef([])
 const uploading = shallowRef(false)
 const currentDraft = shallowRef(null)
 const currentTask = shallowRef(null)
+const rewriteResult = shallowRef(null)
 
 const normalizeDraftImages = (draft) => (
   draft?.sourceImages?.map((image) => ({
@@ -75,12 +77,13 @@ async function handleGenerate(form) {
 }
 
 async function handleRewriteRequirement(form) {
-  await rewriteProductRequirement({
+  rewriteResult.value = await rewriteProductRequirement({
     productAssetId: currentDraft.value?.asset?.id,
     assetType: form.assetType,
     targetPlatform: form.platform,
     userRequirement: form.prompt
   })
+  ElMessage.success(rewriteResult.value?.displayTitle || rewriteResult.value?.optimizedRequirement || 'AI 帮写完成')
 }
 
 async function handleCancel() {
@@ -90,6 +93,7 @@ async function handleCancel() {
 
   await cancelProductImageTask(currentTask.value.id)
   currentTask.value = null
+  currentDraft.value = null
   uploadedImages.value = []
 }
 

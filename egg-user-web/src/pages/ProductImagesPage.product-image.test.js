@@ -12,6 +12,8 @@ test('product image page imports real API wrappers', () => {
   assert.match(page, /createProductImageTask/)
   assert.match(page, /cancelProductImageTask/)
   assert.match(page, /rewriteProductRequirement/)
+  assert.match(page, /rewriteResult\.value = await rewriteProductRequirement/)
+  assert.match(page, /currentDraft\.value = null/)
 })
 
 test('shared workspace lets product page own uploaded image state', () => {
