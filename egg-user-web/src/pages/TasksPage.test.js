@@ -27,6 +27,8 @@ test('task center shows retry only for failed tasks', () => {
   assert.match(page, /\u91cd\u8bd5/)
   assert.match(page, /retryTask\(row\)/)
   assert.match(page, /retryingTaskIds/)
+  assert.match(page, /剧本生成/)
+  assert.doesNotMatch(page, /脚本生成/)
 })
 
 test('task center only exposes downloads for completed story tasks', () => {

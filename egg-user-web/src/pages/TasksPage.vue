@@ -129,7 +129,7 @@ import {
 
 const TASK_KIND_STORY = 'story'
 const TASK_KIND_PRODUCT_IMAGE = 'product_image'
-const STORY_STEPS = ['输入', '剧情生成', '脚本生成', '分镜生成', '分镜校验', '三视图/场景图', '完成']
+const STORY_STEPS = ['输入', '剧情生成', '剧本生成', '分镜生成', '分镜校验', '三视图/场景图', '完成']
 const PRODUCT_IMAGE_STEPS = ['输入', '分析中', '确认规划', '生成中', '完成']
 
 const tasks = ref([])
@@ -329,7 +329,7 @@ const allTaskSections = (task) => (
 const storyTaskSections = (task) => [
   { title: '输入参数', content: inputSummary(task) },
   { title: '剧情生成', content: task.storyOutput },
-  { title: '脚本生成', content: task.scriptOutput },
+  { title: '剧本生成', content: task.scriptOutput },
   { title: '分镜生成', content: task.storyboardOutput },
   { title: '分镜校验', content: task.storyboardCheckOutput },
   { title: '三视图/场景图', content: task.visualOutput }
