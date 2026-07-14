@@ -292,6 +292,7 @@ const props = defineProps({
   desc: { type: String, required: true },
   uploadLabel: { type: String, default: '拖拽或点击上传商品图 / 参考图' },
   steps: { type: Array, default: () => ['输入', '分析中', '确认规划', '生成中', '完成'] },
+  promptValue: { type: String, default: '' },
   activeStep: { type: String, default: '' },
   selectedStep: { type: String, default: '' },
   completedSteps: { type: Array, default: () => [] },
@@ -432,6 +433,15 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => props.promptValue,
+  (value) => {
+    if (typeof value === 'string' && value !== form.prompt) {
+      form.prompt = value
+    }
+  }
+)
+
 const uploadHint = computed(() => {
   if (effectiveUploadedImages.value.length >= UPLOAD_LIMIT) {
     return '已达到 6 张上限，删除图片后可继续添加'
@@ -546,6 +556,9 @@ const handleDragLeave = () => {
 const handleDrop = (event) => {
   dragDepth = 0
   isDragging.value = false
+  if (props.uploading) {
+    return
+  }
   addFiles(event.dataTransfer?.files)
 }
 

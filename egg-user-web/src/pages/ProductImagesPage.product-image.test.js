@@ -13,6 +13,10 @@ test('product image page imports real API wrappers', () => {
   assert.match(page, /cancelProductImageTask/)
   assert.match(page, /rewriteProductRequirement/)
   assert.match(page, /rewriteResult\.value = await rewriteProductRequirement/)
+  assert.match(page, /rewriteDialogVisible/)
+  assert.match(page, /optimizedRequirement/)
+  assert.match(page, /applyRewriteResult/)
+  assert.match(page, /:prompt-value="workspacePrompt"/)
   assert.match(page, /currentDraft\.value = null/)
 })
 

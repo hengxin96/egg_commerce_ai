@@ -7,12 +7,28 @@
     :uploaded-images="uploadedImages"
     :uploading="uploading"
     :show-cancel-button="Boolean(currentTask)"
+    :prompt-value="workspacePrompt"
     @upload-image="handleUploadImage"
     @remove-image="handleRemoveImage"
     @generate="handleGenerate"
     @rewrite-requirement="handleRewriteRequirement"
     @cancel="handleCancel"
   />
+
+  <el-dialog
+    v-model="rewriteDialogVisible"
+    title="AI 帮写结果"
+    width="520px"
+    class="product-rewrite-dialog"
+  >
+    <p class="product-rewrite-preview">
+      {{ rewriteResult?.optimizedRequirement || '暂无可替换内容' }}
+    </p>
+    <template #footer>
+      <el-button @click="rewriteDialogVisible = false">退出</el-button>
+      <el-button type="primary" @click="applyRewriteResult">替换</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
@@ -33,6 +49,8 @@ const uploading = shallowRef(false)
 const currentDraft = shallowRef(null)
 const currentTask = shallowRef(null)
 const rewriteResult = shallowRef(null)
+const rewriteDialogVisible = shallowRef(false)
+const workspacePrompt = shallowRef('')
 
 const normalizeDraftImages = (draft) => (
   draft?.sourceImages?.map((image) => ({
@@ -83,7 +101,17 @@ async function handleRewriteRequirement(form) {
     targetPlatform: form.platform,
     userRequirement: form.prompt
   })
-  ElMessage.success(rewriteResult.value?.displayTitle || rewriteResult.value?.optimizedRequirement || 'AI 帮写完成')
+  rewriteDialogVisible.value = true
+  ElMessage.success(rewriteResult.value?.optimizedRequirement || 'AI 帮写完成')
+}
+
+function applyRewriteResult() {
+  if (!rewriteResult.value?.optimizedRequirement) {
+    return
+  }
+
+  workspacePrompt.value = rewriteResult.value.optimizedRequirement
+  rewriteDialogVisible.value = false
 }
 
 async function handleCancel() {
