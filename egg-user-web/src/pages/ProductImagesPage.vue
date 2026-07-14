@@ -1,172 +1,499 @@
-﻿<template>
-  <GeneratorWorkspace
-    eyebrow="AI 全品类商品图"
-    title="一键生成主图 & 详情图组"
-    desc="上传产品图，AI 智能分析产品特征，自动生成电商主图与多角度多场景的详情图组。"
-    upload-label="上传清晰的产品图片"
-    :uploaded-images="uploadedImages"
-    :uploading="uploading"
-    :show-cancel-button="Boolean(currentTask)"
-    :prompt-value="workspacePrompt"
-    :reset-key="workspaceResetKey"
-    @upload-image="handleUploadImage"
-    @remove-image="handleRemoveImage"
-    @generate="handleGenerate"
-    @rewrite-requirement="handleRewriteRequirement"
-    @cancel="handleCancel"
-  />
+<template>
+  <div class="product-image-page">
+    <GeneratorWorkspace
+      eyebrow="AI 全品类商品图"
+      title="一键生成主图 & 详情图组"
+      desc="上传产品图，AI 智能分析产品特征，自动生成电商主图与多角度多场景的详情图组。"
+      upload-label="上传清晰的产品图片"
+      :steps="PRODUCT_IMAGE_STEPS"
+      :active-step="activeStep"
+      :selected-step="selectedStep"
+      :completed-steps="completedSteps"
+      :failed-step="failedStep"
+      :uploaded-images="uploadedImages"
+      :uploading="isUploading"
+      :show-cancel-button="isTaskProcessing"
+      :prompt-value="workspacePrompt"
+      :reset-key="workspaceResetKey"
+      :generating="isCreating"
+      :result-loading="isTaskProcessing"
+      :result-title="resultTitle"
+      :result-subtitle="resultSubtitle"
+      :empty-message="emptyMessage"
+      :result-sections="resultSections"
+      :can-download="canDownload"
+      :download-options="[{ label: '下载图片', value: 'image' }]"
+      @upload-image="handleUploadImage"
+      @remove-image="handleRemoveImage"
+      @generate="handleGenerate"
+      @select-step="handleSelectStep"
+      @download="handleDownload"
+      @rewrite-requirement="handleRewriteRequirement"
+      @cancel="handleCancelTask"
+    />
 
-  <el-dialog
-    v-model="rewriteDialogVisible"
-    title="AI 帮写结果"
-    width="520px"
-    class="product-rewrite-dialog"
-  >
-    <p class="product-rewrite-preview">
-      {{ rewriteResult?.optimizedRequirement || '暂无可替换内容' }}
-    </p>
-    <template #footer>
-      <el-button @click="rewriteDialogVisible = false">退出</el-button>
-      <el-button type="primary" @click="applyRewriteResult">替换</el-button>
-    </template>
-  </el-dialog>
+    <el-dialog
+      v-model="rewriteDialogVisible"
+      title="AI 帮写结果"
+      width="520px"
+      class="product-rewrite-dialog"
+    >
+      <p class="product-rewrite-preview">
+        {{ rewriteResult?.optimizedRequirement || '暂无可替换内容' }}
+      </p>
+      <template #footer>
+        <el-button @click="rewriteDialogVisible = false">退出</el-button>
+        <el-button type="primary" @click="applyRewriteResult">替换</el-button>
+      </template>
+    </el-dialog>
+
+    <Transition name="story-task-notice">
+      <aside
+        v-if="taskNotice"
+        class="story-task-notice"
+        :class="`is-${taskNotice.type}`"
+        role="status"
+        aria-live="polite"
+      >
+        <span class="story-task-notice-icon" aria-hidden="true">
+          <el-icon v-if="taskNotice.type === 'success'"><CircleCheck /></el-icon>
+          <el-icon v-else><CircleClose /></el-icon>
+        </span>
+        <div class="story-task-notice-body">
+          <strong>{{ taskNotice.title }}</strong>
+          <p>{{ taskNotice.message }}</p>
+          <button type="button" class="story-task-notice-action" @click="goProducts">
+            去商品库查看
+            <el-icon><ArrowRight /></el-icon>
+          </button>
+        </div>
+        <button
+          type="button"
+          class="story-task-notice-close"
+          aria-label="关闭任务提醒"
+          @click="taskNotice = null"
+        >
+          <el-icon><Close /></el-icon>
+        </button>
+      </aside>
+    </Transition>
+  </div>
 </template>
 
 <script setup>
-import { shallowRef } from 'vue'
+import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { ArrowRight, CircleCheck, CircleClose, Close } from '@element-plus/icons-vue'
 import GeneratorWorkspace from '@/components/GeneratorWorkspace.vue'
+import { handleAuthFailure } from '@/utils/authGuard'
 import {
   cancelProductImageTask,
   createProductImageTask,
+  deleteDraftImage,
+  downloadProductAsset,
+  getProductAsset,
   getProductDraft,
+  getProductImageTask,
   rewriteProductRequirement,
-  uploadDraftImage,
-  deleteDraftImage
+  uploadDraftImage
 } from '@/api/productImage'
 
+const PRODUCT_IMAGE_STEPS = ['输入', '分析中', '确认规划', '生成中', '完成']
+
+const router = useRouter()
+const draft = shallowRef(null)
 const uploadedImages = shallowRef([])
-const uploading = shallowRef(false)
-const currentDraft = shallowRef(null)
 const currentTask = shallowRef(null)
-const rewriteResult = shallowRef(null)
+const generatedAsset = shallowRef(null)
+const selectedStep = shallowRef('输入')
+const isUploading = shallowRef(false)
+const isCreating = shallowRef(false)
+const taskNotice = shallowRef(null)
 const rewriteDialogVisible = shallowRef(false)
+const rewriteResult = shallowRef(null)
 const workspacePrompt = shallowRef('')
 const workspaceResetKey = shallowRef(0)
 const requestGeneration = shallowRef(0)
+let pollTimer = null
 
-const normalizeDraftImages = (draft) => (
-  draft?.sourceImages?.map((image) => ({
+const activeStep = computed(() => currentTask.value?.currentNode || '输入')
+const failedStep = computed(() => currentTask.value?.status === 'failed' ? currentTask.value.currentNode : '')
+const isTaskProcessing = computed(() => currentTask.value?.status === 'processing' || isCreating.value)
+const canDownload = computed(() => currentTask.value?.status === 'completed' && Boolean(generatedImages.value.length))
+const activeStepIndex = computed(() => Math.max(PRODUCT_IMAGE_STEPS.indexOf(activeStep.value), 0))
+const completedSteps = computed(() => {
+  if (!currentTask.value) {
+    return []
+  }
+  if (currentTask.value.status === 'completed') {
+    return PRODUCT_IMAGE_STEPS
+  }
+  return PRODUCT_IMAGE_STEPS.filter((_, index) => index < activeStepIndex.value)
+})
+const generatedImages = computed(() => generatedAsset.value?.generatedImages || [])
+const sourceImages = computed(() => generatedAsset.value?.sourceImages || uploadedImages.value)
+const resultTitle = computed(() => isTaskProcessing.value ? '生成中' : '生成结果')
+const resultSubtitle = computed(() => {
+  if (!currentTask.value) {
+    return '上传产品图并填写要求后，点击开始分析'
+  }
+  if (currentTask.value.status === 'completed') {
+    return '商品图已生成完成，可下载或前往商品库查看'
+  }
+  if (currentTask.value.status === 'failed') {
+    return currentTask.value.failureReason || '当前节点生成失败，可前往任务中心重试'
+  }
+  return `当前节点：${currentTask.value.currentNode || '分析中'}`
+})
+const emptyMessage = computed(() => {
+  if (!currentTask.value) {
+    return '上传产品图并填写要求后\n点击开始分析'
+  }
+  if (currentTask.value.status === 'failed') {
+    return currentTask.value.failureReason || '任务生成失败，请前往任务中心查看或重试'
+  }
+  return '后台正在生成商品图，节点完成后会展示内容'
+})
+const resultSections = computed(() => {
+  if (!currentTask.value) {
+    return []
+  }
+  if (selectedStep.value === '输入') {
+    return [{
+      title: '输入参数',
+      imageUrl: sourceImages.value[0]?.url || sourceImages.value[0]?.ossUrl,
+      content: inputSummary()
+    }]
+  }
+  if (selectedStep.value === '分析中') {
+    return [{ title: 'AI 分析结果', content: jsonText(currentTask.value.analysisOutput) }]
+  }
+  if (selectedStep.value === '确认规划') {
+    return [{ title: '规划内容', content: jsonText(currentTask.value.planningOutput) }]
+  }
+  if (selectedStep.value === '生成中' || selectedStep.value === '完成') {
+    return [{
+      title: selectedStep.value === '完成' ? '生成结果' : '生成中',
+      imageUrl: generatedImages.value[0]?.ossUrl || generatedImages.value[0]?.url,
+      content: jsonText(currentTask.value.generationOutput)
+    }]
+  }
+  return []
+})
+
+function normalizeDraftImages(detail) {
+  return detail?.sourceImages?.map((image) => ({
     id: image.id,
-    name: image.ossObjectKey?.split('/').pop() || '商品图',
+    name: image.analysisRole || image.ossObjectKey?.split('/').pop() || '商品图',
     url: image.ossUrl,
+    uploaded: true,
     raw: image
   })) || []
-)
+}
 
-async function refreshDraft(generation = requestGeneration.value) {
-  const draft = await getProductDraft()
+async function loadDraft(generation = requestGeneration.value) {
+  const detail = await getProductDraft()
   if (generation !== requestGeneration.value) {
     return
   }
-
-  currentDraft.value = draft
-  uploadedImages.value = normalizeDraftImages(currentDraft.value)
+  draft.value = detail
+  uploadedImages.value = normalizeDraftImages(detail)
 }
 
 async function handleUploadImage(files) {
-  if (uploading.value) {
+  if (isUploading.value) {
     return
   }
 
   const generation = requestGeneration.value
-  uploading.value = true
+  isUploading.value = true
   try {
     for (const file of files) {
-      const draft = await uploadDraftImage(file)
+      const detail = await uploadDraftImage(file)
       if (generation !== requestGeneration.value) {
         return
       }
-      currentDraft.value = draft
+      draft.value = detail
     }
-    await refreshDraft(generation)
+    await loadDraft(generation)
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '上传图片失败')
+    }
   } finally {
     if (generation === requestGeneration.value) {
-      uploading.value = false
+      isUploading.value = false
     }
   }
 }
 
 async function handleRemoveImage(imageId) {
   const generation = requestGeneration.value
-  await deleteDraftImage(imageId)
-  await refreshDraft(generation)
+  try {
+    await deleteDraftImage(imageId)
+    await loadDraft(generation)
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '删除图片失败')
+    }
+  }
 }
 
 async function handleGenerate(form) {
-  const generation = requestGeneration.value
-  const task = await createProductImageTask({
-    productAssetId: currentDraft.value?.asset?.id,
-    assetType: form.assetType,
-    targetPlatform: form.platform,
-    aspectRatio: form.ratio,
-    quality: form.quality,
-    userRequirement: form.prompt
-  })
-  if (generation !== requestGeneration.value) {
+  if (!uploadedImages.value.length) {
+    ElMessage.warning('请先上传产品图')
     return
   }
-  currentTask.value = task
+  if (uploadedImages.value.length === 1) {
+    ElMessage.warning('已使用单张产品图开始分析，多视角或 SKU 图可提升规划稳定性')
+  }
+
+  const generation = requestGeneration.value
+  isCreating.value = true
+  taskNotice.value = null
+  generatedAsset.value = null
+  stopPolling()
+  try {
+    const task = await createProductImageTask({
+      productAssetId: draft.value?.asset?.id,
+      assetType: form.assetType === '主图' ? 'main' : 'detail',
+      targetPlatform: form.platform,
+      aspectRatio: form.ratio,
+      quality: form.quality,
+      userRequirement: form.prompt
+    })
+    if (generation !== requestGeneration.value) {
+      return
+    }
+    currentTask.value = task
+    selectedStep.value = task.currentNode || '分析中'
+    await refreshCurrentTask(generation)
+    startPolling()
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '创建商品图任务失败')
+    }
+  } finally {
+    if (generation === requestGeneration.value) {
+      isCreating.value = false
+    }
+  }
 }
 
 async function handleRewriteRequirement(form) {
   const generation = requestGeneration.value
-  const result = await rewriteProductRequirement({
-    productAssetId: currentDraft.value?.asset?.id,
-    assetType: form.assetType,
-    targetPlatform: form.platform,
-    userRequirement: form.prompt
-  })
-  if (generation !== requestGeneration.value) {
-    return
+  try {
+    const result = await rewriteProductRequirement({
+      productAssetId: draft.value?.asset?.id,
+      assetType: form.assetType === '主图' ? 'main' : 'detail',
+      targetPlatform: form.platform,
+      userRequirement: form.prompt
+    })
+    if (generation !== requestGeneration.value) {
+      return
+    }
+    rewriteResult.value = result
+    rewriteDialogVisible.value = true
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || 'AI 帮写失败')
+    }
   }
-
-  rewriteResult.value = result
-  rewriteDialogVisible.value = true
-  ElMessage.success(rewriteResult.value?.optimizedRequirement || 'AI 帮写完成')
 }
 
 function applyRewriteResult() {
   if (!rewriteResult.value?.optimizedRequirement) {
     return
   }
-
   workspacePrompt.value = rewriteResult.value.optimizedRequirement
   rewriteDialogVisible.value = false
 }
 
+async function refreshCurrentTask(generation = requestGeneration.value) {
+  if (!currentTask.value?.id) {
+    return
+  }
+  const task = await getProductImageTask(currentTask.value.id)
+  if (generation !== requestGeneration.value) {
+    return
+  }
+  currentTask.value = task
+  selectedStep.value = task.status === 'completed' ? '完成' : (task.currentNode || selectedStep.value)
+  if (task.status === 'completed') {
+    await loadGeneratedAsset(task, generation)
+    stopPolling()
+    showCompletionNotice()
+  } else if (task.status === 'failed' || task.status === 'cancelled') {
+    stopPolling()
+  }
+}
+
+async function loadGeneratedAsset(task, generation = requestGeneration.value) {
+  if (!task?.productAssetId) {
+    return
+  }
+  const detail = await getProductAsset(task.productAssetId)
+  if (generation !== requestGeneration.value) {
+    return
+  }
+  generatedAsset.value = detail
+}
+
+function startPolling() {
+  stopPolling()
+  if (!currentTask.value?.id || currentTask.value.status !== 'processing') {
+    return
+  }
+  pollTimer = window.setInterval(() => {
+    refreshCurrentTask().catch((error) => {
+      if (!handleAuthFailure(error, router)) {
+        ElMessage.error(error.message || '刷新任务进度失败')
+      }
+      stopPolling()
+    })
+  }, 2500)
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    window.clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function handleSelectStep(step) {
+  selectedStep.value = step
+}
+
+async function handleDownload() {
+  const assetId = currentTask.value?.productAssetId
+  if (!assetId) {
+    return
+  }
+  try {
+    await downloadProductAsset(assetId)
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '下载图片失败')
+    }
+  }
+}
+
 function clearPageSurface() {
+  stopPolling()
   currentTask.value = null
   // Task-backed cancelled assets stay in history; clearing here is only the page surface.
-  currentDraft.value = null
+  draft.value = null
+  generatedAsset.value = null
   uploadedImages.value = []
   workspacePrompt.value = ''
   rewriteResult.value = null
   rewriteDialogVisible.value = false
-  uploading.value = false
+  isUploading.value = false
+  isCreating.value = false
+  selectedStep.value = '输入'
   workspaceResetKey.value += 1
 }
 
-async function handleCancel() {
+async function handleCancelTask() {
   if (!currentTask.value?.id) {
     return
   }
-
   const taskId = currentTask.value.id
   requestGeneration.value += 1
   clearPageSurface()
-  await cancelProductImageTask(taskId)
+  ElMessage.success('当前任务已终止，如需查看请前往任务中心')
+  try {
+    await cancelProductImageTask(taskId)
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '终止任务请求失败，请前往任务中心确认状态')
+    }
+  }
 }
 
-refreshDraft().catch(() => {})
+function showCompletionNotice() {
+  taskNotice.value = {
+    type: 'success',
+    title: '商品图已生成',
+    message: '当前任务已完成，可前往商品库查看和继续使用'
+  }
+}
+
+function goProducts() {
+  taskNotice.value = null
+  router.push('/products')
+}
+
+function inputSummary() {
+  const task = currentTask.value
+  const asset = draft.value?.asset || generatedAsset.value?.asset || {}
+  return [
+    `商品：${asset.name || '未命名商品'}`,
+    `类型：${task?.assetType === 'detail' ? '详情图' : '主图'}`,
+    `平台：${task?.targetPlatform || asset.targetPlatform || '抖音'}`,
+    `源图：${uploadedImages.value.length || sourceImages.value.length} 张`,
+    `要求：${asset.userRequirement || task?.userRequirement || '未填写'}`
+  ].join('\n')
+}
+
+function jsonText(value) {
+  if (!value || value === '{}') {
+    return '等待节点输出'
+  }
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+onMounted(() => {
+  loadDraft().catch((error) => {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '恢复草稿失败')
+    }
+  })
+})
+
+onBeforeUnmount(() => {
+  stopPolling()
+  taskNotice.value = null
+})
 </script>
+
+<style scoped>
+.product-image-page :deep(.cancel-generate-button.el-button) {
+  width: 100%;
+  min-height: 52px;
+  margin-left: 0;
+  border-radius: 16px;
+  font-weight: 850;
+}
+
+.product-image-page :deep(.result-image-preview) {
+  width: 100%;
+  max-height: 320px;
+  display: block;
+  object-fit: contain;
+  margin: 0 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-muted);
+}
+
+.product-rewrite-preview {
+  max-height: 360px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-muted);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+</style>

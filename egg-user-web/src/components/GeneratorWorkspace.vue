@@ -237,8 +237,14 @@
         <div class="result-canvas">
           <div v-if="props.resultSections.length" class="result-content" :class="{ 'is-single-section': props.resultSections.length === 1 }">
             <div v-if="props.canDownload" class="result-actions">
-              <el-button :icon="Download" @click="emit('download', 'docx')">Word</el-button>
-              <el-button :icon="Download" @click="emit('download', 'md')">Markdown</el-button>
+              <el-button
+                v-for="option in props.downloadOptions"
+                :key="option.value"
+                :icon="Download"
+                @click="emit('download', option.value)"
+              >
+                {{ option.label }}
+              </el-button>
             </div>
             <article
               v-for="section in props.resultSections"
@@ -246,6 +252,7 @@
               class="result-section"
             >
               <h3>{{ section.title }}</h3>
+              <img v-if="section.imageUrl" class="result-image-preview" :src="section.imageUrl" :alt="section.title" />
               <pre>{{ section.content || section.placeholder || '未生成' }}</pre>
             </article>
           </div>
@@ -356,7 +363,14 @@ const props = defineProps({
   generating: { type: Boolean, default: false },
   resultLoading: { type: Boolean, default: false },
   resultSections: { type: Array, default: () => [] },
-  canDownload: { type: Boolean, default: false }
+  canDownload: { type: Boolean, default: false },
+  downloadOptions: {
+    type: Array,
+    default: () => [
+      { label: 'Word', value: 'docx' },
+      { label: 'Markdown', value: 'md' }
+    ]
+  }
 })
 
 const assetTypes = [
