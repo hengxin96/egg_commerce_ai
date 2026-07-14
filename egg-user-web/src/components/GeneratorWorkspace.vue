@@ -11,10 +11,16 @@
 
     <section class="process-steps" aria-label="生成流程">
       <template v-for="(step, index) in props.steps" :key="step">
-        <span class="process-step" :class="{ 'is-active': index === 0, 'is-muted': index > 0 }">
+        <button
+          class="process-step"
+          type="button"
+          :disabled="!isStepSelectable(step)"
+          :class="stepClasses(step)"
+          @click="selectStep(step)"
+        >
           <strong>{{ index + 1 }}</strong>
           <span>{{ step }}</span>
-        </span>
+        </button>
         <span v-if="index < props.steps.length - 1" class="process-line"></span>
       </template>
     </section>
@@ -30,7 +36,7 @@
               <h2>产品图</h2>
               <p>{{ props.uploadLabel }}</p>
             </div>
-            <span class="upload-count">{{ uploadedImages.length }}/{{ UPLOAD_LIMIT }}</span>
+            <span class="upload-count">{{ effectiveUploadedImages.length }}/{{ UPLOAD_LIMIT }}</span>
           </div>
 
           <input
@@ -44,7 +50,7 @@
 
           <div
             class="upload-drop"
-            :class="{ 'is-dragging': isDragging, 'has-previews': uploadedImages.length }"
+            :class="{ 'is-dragging': isDragging, 'has-previews': effectiveUploadedImages.length, 'is-uploading': props.uploading }"
             role="button"
             tabindex="0"
             aria-label="上传产品图片"
@@ -56,9 +62,9 @@
             @dragleave.prevent="handleDragLeave"
             @drop.prevent="handleDrop"
           >
-            <template v-if="uploadedImages.length">
+            <template v-if="effectiveUploadedImages.length">
               <ul class="upload-preview-list" aria-label="已上传产品图片">
-                <li v-for="image in uploadedImages" :key="image.id" class="upload-preview-item">
+                <li v-for="image in effectiveUploadedImages" :key="image.id" class="upload-preview-item">
                   <button
                     class="upload-remove"
                     type="button"
@@ -74,9 +80,10 @@
             </template>
             <template v-else>
               <span class="upload-symbol">
-                <el-icon><Upload /></el-icon>
+                <el-icon v-if="props.uploading"><Loading /></el-icon>
+                <el-icon v-else><Upload /></el-icon>
               </span>
-              <span class="upload-copy">多图上传时建议仅上传必要的视角或 SKU 图，图片不是越多越好</span>
+              <span class="upload-copy">{{ props.uploading ? '图片上传中，请稍候' : '多图上传时建议仅上传必要的视角或 SKU 图，图片不是越多越好' }}</span>
             </template>
           </div>
         </div>
@@ -101,10 +108,12 @@
             <label class="field-block" :style="platformFieldStyle">
               <span>目标平台</span>
               <el-select v-model="form.platform" style="width:100%">
-                <el-option label="抖音" value="抖音" />
-                <el-option label="淘宝/天猫" value="淘宝/天猫" />
-                <el-option label="小红书" value="小红书" />
-                <el-option label="Amazon" value="Amazon" />
+                <el-option
+                  v-for="option in props.platformOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </label>
 
@@ -117,7 +126,7 @@
                   :rows="5"
                   :placeholder="props.promptPlaceholder"
                 />
-                <button v-if="props.showPromptHelper" class="prompt-helper" type="button">
+                <button v-if="props.showPromptHelper" class="prompt-helper" type="button" @click="emitRewriteRequirement">
                   <el-icon><MagicStick /></el-icon>
                   AI 帮写
                 </button>
@@ -191,8 +200,23 @@
         </div>
 
 
-        <el-button class="generate-button" type="primary" size="large" :icon="MagicStick">
+        <el-button
+          class="generate-button"
+          type="primary"
+          size="large"
+          :icon="MagicStick"
+          :loading="props.generating"
+          @click="emitGenerate"
+        >
           {{ props.generateButtonLabel }}
+        </el-button>
+        <el-button
+          v-if="props.showCancelButton"
+          class="cancel-generate-button"
+          size="large"
+          @click="emit('cancel')"
+        >
+          终止
         </el-button>
       </section>
 
@@ -202,13 +226,30 @@
             <el-icon><MagicStick /></el-icon>
           </span>
           <div>
-            <h2>生成结果</h2>
+            <div class="result-title-row">
+              <h2>{{ props.resultTitle }}</h2>
+              <el-icon v-if="props.resultLoading" class="result-loading-icon"><Loading /></el-icon>
+            </div>
             <p>{{ props.resultSubtitle }}</p>
           </div>
         </div>
 
         <div class="result-canvas">
-          <div class="result-empty">
+          <div v-if="props.resultSections.length" class="result-content" :class="{ 'is-single-section': props.resultSections.length === 1 }">
+            <div v-if="props.canDownload" class="result-actions">
+              <el-button :icon="Download" @click="emit('download', 'docx')">Word</el-button>
+              <el-button :icon="Download" @click="emit('download', 'md')">Markdown</el-button>
+            </div>
+            <article
+              v-for="section in props.resultSections"
+              :key="section.title"
+              class="result-section"
+            >
+              <h3>{{ section.title }}</h3>
+              <pre>{{ section.content || section.placeholder || '未生成' }}</pre>
+            </article>
+          </div>
+          <div v-else class="result-empty">
             <span class="empty-symbol">
               <el-icon><MagicStick /></el-icon>
             </span>
@@ -226,9 +267,24 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, reactive, shallowRef, useTemplateRef } from 'vue'
-import { Close, MagicStick, Picture, Upload } from '@element-plus/icons-vue'
+import { computed, getCurrentInstance, onBeforeUnmount, reactive, shallowRef, useTemplateRef, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { Close, Download, Loading, MagicStick, Picture, Upload } from '@element-plus/icons-vue'
 import { selectImageFiles, UPLOAD_LIMIT } from '@/utils/imageUpload'
+import { requireLogin } from '@/utils/authGuard'
+
+// Parent contract: :uploaded-images, @upload-image, @remove-image, @cancel.
+const emit = defineEmits([
+  'generate',
+  'select-step',
+  'download',
+  'upload-image',
+  'remove-image',
+  'rewrite-requirement',
+  'cancel'
+])
+const router = useRouter()
+const instance = getCurrentInstance()
 
 const props = defineProps({
   eyebrow: { type: String, default: 'AI 生成' },
@@ -236,6 +292,10 @@ const props = defineProps({
   desc: { type: String, required: true },
   uploadLabel: { type: String, default: '拖拽或点击上传商品图 / 参考图' },
   steps: { type: Array, default: () => ['输入', '分析中', '确认规划', '生成中', '完成'] },
+  activeStep: { type: String, default: '' },
+  selectedStep: { type: String, default: '' },
+  completedSteps: { type: Array, default: () => [] },
+  failedStep: { type: String, default: '' },
   showUploadPanel: { type: Boolean, default: true },
   showAssetTabs: { type: Boolean, default: true },
   showPromptHelper: { type: Boolean, default: true },
@@ -243,11 +303,23 @@ const props = defineProps({
   showRatioField: { type: Boolean, default: true },
   showQualityField: { type: Boolean, default: true },
   showCountField: { type: Boolean, default: true },
+  uploadedImages: { type: Array, default: () => [] },
+  uploading: { type: Boolean, default: false },
+  showCancelButton: { type: Boolean, default: false },
   promptBeforePlatform: { type: Boolean, default: false },
   promptFieldLabel: { type: String, default: '' },
   promptPlaceholder: { type: String, default: '建议输入：产品名称、卖点、目标人群、目标电商平台、图片风格等' },
   productInfoLabel: { type: String, default: '产品信息' },
   productInfoPlaceholder: { type: String, default: '' },
+  platformOptions: {
+    type: Array,
+    default: () => [
+      { label: '抖音', value: '抖音' },
+      { label: '淘宝/天猫', value: '淘宝/天猫' },
+      { label: '小红书', value: '小红书' },
+      { label: 'Amazon', value: 'Amazon' }
+    ]
+  },
   languageFieldLabel: { type: String, default: '目标语言' },
   languageOptions: {
     type: Array,
@@ -276,8 +348,13 @@ const props = defineProps({
     ]
   },
   generateButtonLabel: { type: String, default: '分析产品' },
+  resultTitle: { type: String, default: '生成结果' },
   resultSubtitle: { type: String, default: '上传产品图并点击分析开始' },
-  emptyMessage: { type: String, default: '上传产品图并填写要求后\n点击分析产品开始' }
+  emptyMessage: { type: String, default: '上传产品图并填写要求后\n点击分析产品开始' },
+  generating: { type: Boolean, default: false },
+  resultLoading: { type: Boolean, default: false },
+  resultSections: { type: Array, default: () => [] },
+  canDownload: { type: Boolean, default: false }
 })
 
 const assetTypes = [
@@ -287,9 +364,13 @@ const assetTypes = [
 
 const firstOptionValue = (options, fallback) => options[0]?.value ?? fallback
 
+const optionContainsValue = (options, value) => {
+  return options.some((option) => option.value === value)
+}
+
 const form = reactive({
   assetType: '主图',
-  platform: '抖音',
+  platform: firstOptionValue(props.platformOptions, '抖音'),
   ratio: firstOptionValue(props.ratioOptions, '3:4'),
   count: 1,
   language: firstOptionValue(props.languageOptions, 'zh-CN'),
@@ -300,10 +381,16 @@ const form = reactive({
 })
 
 const fileInput = useTemplateRef('fileInput')
-const uploadedImages = shallowRef([])
+const localUploadedImages = shallowRef([])
 const isDragging = shallowRef(false)
 let nextImageId = 0
 let dragDepth = 0
+
+const hasExternalUploadState = computed(() => {
+  const vnodeProps = instance?.vnode?.props || {}
+  return Object.prototype.hasOwnProperty.call(vnodeProps, 'uploadedImages')
+    || Object.prototype.hasOwnProperty.call(vnodeProps, 'uploaded-images')
+})
 
 // 剧情生成页会重排字段，但商品图等页面继续沿用默认顺序。
 const fieldOrder = computed(() => (
@@ -319,9 +406,34 @@ const languageFieldStyle = computed(() => ({ order: fieldOrder.value.language })
 const advancedFieldsStyle = computed(() => ({ order: fieldOrder.value.advanced }))
 const promptFieldLabel = computed(() => props.promptFieldLabel || `${form.assetType}要求`)
 const emptyMessageLines = computed(() => props.emptyMessage.split('\n'))
+const activeStepName = computed(() => props.activeStep || props.steps[0])
+const selectedStepName = computed(() => props.selectedStep || activeStepName.value)
+const effectiveUploadedImages = computed(() => (
+  hasExternalUploadState.value ? props.uploadedImages : localUploadedImages.value
+))
+
+const syncOptionField = (field, options, fallback) => {
+  if (!options.length || optionContainsValue(options, form[field])) {
+    return
+  }
+
+  form[field] = firstOptionValue(options, fallback)
+}
+
+// 字典数据是异步加载的；真实 options 到达后同步默认选中值，避免继续显示页面 fallback。
+watch(
+  () => [props.platformOptions, props.languageOptions, props.modelOptions, props.ratioOptions],
+  () => {
+    syncOptionField('platform', props.platformOptions, '抖音')
+    syncOptionField('language', props.languageOptions, 'zh-CN')
+    syncOptionField('model', props.modelOptions, 'Nova 2.0')
+    syncOptionField('ratio', props.ratioOptions, '3:4')
+  },
+  { immediate: true }
+)
 
 const uploadHint = computed(() => {
-  if (uploadedImages.value.length >= UPLOAD_LIMIT) {
+  if (effectiveUploadedImages.value.length >= UPLOAD_LIMIT) {
     return '已达到 6 张上限，删除图片后可继续添加'
   }
 
@@ -329,17 +441,54 @@ const uploadHint = computed(() => {
 })
 
 const openFilePicker = () => {
-  if (uploadedImages.value.length >= UPLOAD_LIMIT) {
+  if (props.uploading || effectiveUploadedImages.value.length >= UPLOAD_LIMIT) {
     return
   }
 
   fileInput.value?.click()
 }
 
+const isStepSelectable = (step) => (
+  props.completedSteps.includes(step)
+  || step === activeStepName.value
+  || step === props.failedStep
+)
+
+const stepClasses = (step) => ({
+  'is-active': selectedStepName.value === step,
+  'is-current': activeStepName.value === step,
+  'is-completed': props.completedSteps.includes(step),
+  'is-selected-completed': selectedStepName.value === step
+    && props.completedSteps.includes(step)
+    && activeStepName.value !== step,
+  'is-failed': props.failedStep === step,
+  'is-muted': !props.completedSteps.includes(step) && activeStepName.value !== step
+})
+
+const selectStep = (step) => {
+  if (!isStepSelectable(step)) {
+    return
+  }
+  emit('select-step', step)
+}
+
+const emitGenerate = () => {
+  if (!requireLogin(router)) {
+    return
+  }
+
+  emit('generate', { ...form })
+}
+
 const addFiles = (files) => {
-  const selectedFiles = selectImageFiles(files, uploadedImages.value.length)
+  const selectedFiles = selectImageFiles(files, effectiveUploadedImages.value.length)
 
   if (!selectedFiles.length) {
+    return
+  }
+
+  if (hasExternalUploadState.value) {
+    emit('upload-image', selectedFiles)
     return
   }
 
@@ -350,7 +499,11 @@ const addFiles = (files) => {
     file
   }))
 
-  uploadedImages.value = [...uploadedImages.value, ...previews]
+  localUploadedImages.value = [...localUploadedImages.value, ...previews]
+}
+
+const emitRewriteRequirement = () => {
+  emit('rewrite-requirement', { ...form })
 }
 
 const handleFileChange = (event) => {
@@ -378,7 +531,7 @@ const handleDragOver = (event) => {
     return
   }
 
-  event.dataTransfer.dropEffect = uploadedImages.value.length >= UPLOAD_LIMIT ? 'none' : 'copy'
+  event.dataTransfer.dropEffect = props.uploading || effectiveUploadedImages.value.length >= UPLOAD_LIMIT ? 'none' : 'copy'
   isDragging.value = true
 }
 
@@ -397,16 +550,21 @@ const handleDrop = (event) => {
 }
 
 const removeImage = (imageId) => {
-  const image = uploadedImages.value.find((item) => item.id === imageId)
+  if (hasExternalUploadState.value) {
+    emit('remove-image', imageId)
+    return
+  }
+
+  const image = localUploadedImages.value.find((item) => item.id === imageId)
 
   if (image) {
     URL.revokeObjectURL(image.url)
   }
 
-  uploadedImages.value = uploadedImages.value.filter((item) => item.id !== imageId)
+  localUploadedImages.value = localUploadedImages.value.filter((item) => item.id !== imageId)
 }
 
 onBeforeUnmount(() => {
-  uploadedImages.value.forEach((image) => URL.revokeObjectURL(image.url))
+  localUploadedImages.value.forEach((image) => URL.revokeObjectURL(image.url))
 })
 </script>
