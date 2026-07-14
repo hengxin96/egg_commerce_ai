@@ -15,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.ArrayList;
 import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -81,14 +82,16 @@ class AiImageGenerationServiceTest
     @Test
     void dashScopeImageGenerationExtractsChoiceImageUrl()
     {
-        AiDashScopeImageGenerationServiceImpl service = new AiDashScopeImageGenerationServiceImpl(environment(),
-                new QueueHttpClient(List.of(
+        QueueHttpClient httpClient = new QueueHttpClient(List.of(
                         "{\"output\":{\"task_id\":\"task-1\"}}",
-                        "{\"output\":{\"task_status\":\"SUCCEEDED\",\"choices\":[{\"message\":{\"content\":[{\"image\":\"https://oss/generated.png\"}]}}]}}")));
+                        "{\"output\":{\"task_status\":\"SUCCEEDED\",\"choices\":[{\"message\":{\"content\":[{\"image\":\"https://oss/generated.png\"}]}}]}}"));
+        AiDashScopeImageGenerationServiceImpl service = new AiDashScopeImageGenerationServiceImpl(environment(),
+                httpClient);
 
         AiImageGenerationResult result = service.generate(request());
 
         assertEquals(List.of("https://oss/generated.png"), result.getImageUrls());
+        assertEquals(true, httpClient.timeouts.stream().allMatch(timeout -> timeout.toMillis() <= 5000L));
     }
 
     private AiImageGenerationRequest request()
@@ -114,6 +117,7 @@ class AiImageGenerationServiceTest
     private static class QueueHttpClient extends HttpClient
     {
         private final List<String> responses;
+        private final List<Duration> timeouts = new ArrayList<>();
         private int index;
 
         QueueHttpClient(List<String> responses)
@@ -125,6 +129,7 @@ class AiImageGenerationServiceTest
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
                 throws IOException, InterruptedException
         {
+            request.timeout().ifPresent(timeouts::add);
             String body = responses.get(index++);
             @SuppressWarnings("unchecked")
             T castBody = (T) body;

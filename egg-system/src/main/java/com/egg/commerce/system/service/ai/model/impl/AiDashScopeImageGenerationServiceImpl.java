@@ -82,7 +82,7 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         int maxPolls = environment.getProperty("egg.ai.model-gateway.image.max-polls", Integer.class, 80);
         long deadlineMillis = System.currentTimeMillis() + timeoutSeconds * 1000L;
 
-        JSONObject submitResponse = submitTask(endpoint, apiKey, model, request, secondsUntil(deadlineMillis));
+        JSONObject submitResponse = submitTask(endpoint, apiKey, model, request, remainingDuration(deadlineMillis));
         String taskId = extractTaskId(submitResponse);
         JSONObject finalResponse = pollTask(endpoint, apiKey, taskId, deadlineMillis, pollIntervalMillis, maxPolls);
 
@@ -96,7 +96,7 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
     }
 
     private JSONObject submitTask(String endpoint, String apiKey, String model, AiImageGenerationRequest request,
-            int timeoutSeconds)
+            Duration timeout)
     {
         JSONObject body = new JSONObject();
         body.put("model", model);
@@ -128,7 +128,7 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
 
         HttpRequest httpRequest = HttpRequest.newBuilder(
                 URI.create(endpoint + "/api/v1/services/aigc/text2image/image-synthesis"))
-                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .timeout(timeout)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .header("X-DashScope-Async", "enable")
@@ -142,9 +142,8 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
     {
         for (int index = 0; index < maxPolls; index++)
         {
-            int timeoutSeconds = secondsUntil(deadlineMillis);
             HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(endpoint + "/api/v1/tasks/" + taskId))
-                    .timeout(Duration.ofSeconds(timeoutSeconds))
+                    .timeout(remainingDuration(deadlineMillis))
                     .header("Authorization", "Bearer " + apiKey)
                     .GET()
                     .build();
@@ -174,14 +173,14 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
                 || "SUSPENDED".equalsIgnoreCase(status);
     }
 
-    private int secondsUntil(long deadlineMillis)
+    private Duration remainingDuration(long deadlineMillis)
     {
         long remainingMillis = deadlineMillis - System.currentTimeMillis();
         if (remainingMillis <= 0)
         {
             throw new ServiceException("DashScope 图片生成超时");
         }
-        return Math.max(1, (int) Math.ceil(remainingMillis / 1000.0d));
+        return Duration.ofMillis(remainingMillis);
     }
 
     private JSONObject sendJson(HttpRequest request, String errorMessage)
