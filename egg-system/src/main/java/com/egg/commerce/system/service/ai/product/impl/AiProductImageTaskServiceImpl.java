@@ -38,6 +38,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /** Coordinates the persisted product-image generation workflow. */
@@ -145,8 +147,27 @@ public class AiProductImageTaskServiceImpl implements AiProductImageTaskService
         asset.setUpdatedAt(now);
         updateAsset(asset);
         taskMapper.insertAiProductImageTask(task);
-        taskExecutor.submit(() -> executeTask(task.getId()));
+        scheduleTaskExecution(task.getId());
         return task;
+    }
+
+    /** Schedules the worker only after the task row is visible to its independent database connection. */
+    private void scheduleTaskExecution(String taskId)
+    {
+        Runnable execution = () -> executeTask(taskId);
+        if (!TransactionSynchronizationManager.isSynchronizationActive())
+        {
+            taskExecutor.submit(execution);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization()
+        {
+            @Override
+            public void afterCommit()
+            {
+                taskExecutor.submit(execution);
+            }
+        });
     }
 
     @Override

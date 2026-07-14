@@ -65,3 +65,24 @@ Result: 7 tests passed.
 ### Concerns
 
 - The targeted unit suite uses fake mappers; production CAS SQL and transaction behavior should be covered by an integration test when a PostgreSQL test fixture is available.
+
+## After-Commit Scheduling Fix
+
+### Files changed
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiProductImageTaskServiceImplTest.java`
+- `docs/change-log.md`
+
+### Fix
+
+- Deferred product-image worker submission until `afterCommit` when a Spring transaction synchronization is active; execution remains immediate when no transaction is active.
+- Added a focused regression test that verifies the executor receives no submission before commit and one submission after commit.
+
+### Test output
+
+```text
+mvn -pl egg-system -Dtest=AiProductImageTaskServiceImplTest test
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```

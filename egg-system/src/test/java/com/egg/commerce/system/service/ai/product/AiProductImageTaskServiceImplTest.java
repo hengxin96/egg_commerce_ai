@@ -36,6 +36,8 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 class AiProductImageTaskServiceImplTest
@@ -148,6 +150,27 @@ class AiProductImageTaskServiceImplTest
     }
 
     @Test
+    void createTaskDefersSchedulingUntilAfterCommit()
+    {
+        RecordingThreadPoolTaskExecutor executor = new RecordingThreadPoolTaskExecutor();
+        Fixture fixture = new Fixture(executor);
+        TransactionSynchronizationManager.initSynchronization();
+        try
+        {
+            fixture.service.createTask(1L, fixture.request());
+
+            assertEquals(0, executor.submissions);
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(TransactionSynchronization::afterCommit);
+            assertEquals(1, executor.submissions);
+        }
+        finally
+        {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
     void cancelProcessingTaskPreventsRetryAndVisibility()
     {
         Fixture fixture = new Fixture();
@@ -176,10 +199,15 @@ class AiProductImageTaskServiceImplTest
 
         private Fixture()
         {
+            this(new ImmediateThreadPoolTaskExecutor());
+        }
+
+        private Fixture(ThreadPoolTaskExecutor executor)
+        {
             assets.asset = asset();
             images.images.add(sourceImage());
             service = new DownloadingTaskService(tasks, assets, images, new FakePromptMapper(), storage, text, image,
-                    new ImmediateThreadPoolTaskExecutor(), environment());
+                    executor, environment());
         }
 
         private AiProductImageTaskRequest request()
@@ -248,6 +276,18 @@ class AiProductImageTaskServiceImplTest
         public Future<?> submit(Runnable task)
         {
             task.run();
+            return CompletableFuture.completedFuture(null);
+        }
+    }
+
+    private static class RecordingThreadPoolTaskExecutor extends ThreadPoolTaskExecutor
+    {
+        private int submissions;
+
+        @Override
+        public Future<?> submit(Runnable task)
+        {
+            submissions++;
             return CompletableFuture.completedFuture(null);
         }
     }
