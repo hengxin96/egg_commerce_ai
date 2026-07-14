@@ -142,6 +142,10 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
     {
         requireUserId(userId);
         AiProductAsset source = requireOwnedAsset(userId, assetId);
+        if (!STATUS_COMPLETED.equals(source.getStatus()) || !Boolean.TRUE.equals(source.getVisible()))
+        {
+            throw new ServiceException("商品不存在");
+        }
         AiProductAsset draft = newDraft(userId);
         draft.setSourceProductId(source.getId());
         draft.setAssetType(source.getAssetType());

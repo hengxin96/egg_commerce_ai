@@ -66,6 +66,18 @@ class AiProductAssetServiceImplTest
     }
 
     @Test
+    void reuseRejectsOwnedAssetsThatAreNotCompletedAndVisible()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("failed", 1L, "failed", false));
+        fixture.assets.insertAiProductAsset(fixture.asset("hidden", 1L, "completed", false));
+
+        assertThrows(ServiceException.class, () -> fixture.service.reuseAsset(1L, "failed"));
+        assertThrows(ServiceException.class, () -> fixture.service.reuseAsset(1L, "hidden"));
+        assertEquals(0, fixture.storage.copyCalls);
+    }
+
+    @Test
     void deleteVisibleAssetDeletesAllOssObjectsAndRows()
     {
         Fixture fixture = new Fixture();
