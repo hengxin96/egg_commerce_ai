@@ -17,6 +17,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="vectorStore" column="vector_store"/>
         <result property="vectorCollection" column="vector_collection"/>
         <result property="vectorIds" column="vector_ids"/>
+        <result property="accessRoles" column="access_roles"/>
         <result property="chunkCount" column="chunk_count"/>
         <result property="status" column="status"/>
         <result property="failureReason" column="failure_reason"/>
@@ -38,6 +39,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                vector_store,
                vector_collection,
                vector_ids::text as vector_ids,
+               access_roles,
                chunk_count,
                status,
                failure_reason,
@@ -78,6 +80,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="status != null and status != ''">
                 and status = #{status}
             </if>
+            <if test="accessRoles != null and accessRoles != ''">
+                and (',' || access_roles || ',') like concat('%,', #{accessRoles}, ',%')
+            </if>
             <if test="createdBy != null">
                 and created_by = #{createdBy}
             </if>
@@ -100,6 +105,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             vector_store,
             vector_collection,
             vector_ids,
+            access_roles,
             chunk_count,
             status,
             failure_reason,
@@ -119,6 +125,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{vectorStore},
             #{vectorCollection},
             cast(#{vectorIds} as jsonb),
+            #{accessRoles},
             #{chunkCount},
             #{status},
             #{failureReason},
@@ -143,6 +150,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             vector_store = #{vectorStore},
             vector_collection = #{vectorCollection},
             vector_ids = cast(#{vectorIds} as jsonb),
+            access_roles = #{accessRoles},
             chunk_count = #{chunkCount},
             status = #{status},
             failure_reason = #{failureReason},
@@ -152,6 +160,37 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             completed_at = #{completedAt}
         where id = cast(#{id} as uuid)
     </update>
+
+    <!-- 批量更新知识库文档可访问角色。 -->
+    <update id="updateAiKnowledgeDocumentAccessRoles">
+        update ai_knowledge_documents
+        set access_roles = #{accessRoles},
+            updated_at = now()
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            cast(#{id} as uuid)
+        </foreach>
+    </update>
+
+    <!-- 查询所有已完成文档 ID，admin 检索时使用。 -->
+    <select id="selectCompletedDocumentIds" resultType="String">
+        select id::text
+        from ai_knowledge_documents
+        where status = 'completed'
+        order by created_at desc
+    </select>
+
+    <!-- 查询当前角色可访问的已完成文档 ID，普通用户 RAG 检索前使用。 -->
+    <select id="selectCompletedDocumentIdsByAccessRoles" resultType="String">
+        select id::text
+        from ai_knowledge_documents
+        where status = 'completed'
+          and
+        <foreach collection="roleKeys" item="roleKey" open="(" separator=" or " close=")">
+            (',' || access_roles || ',') like concat('%,', #{roleKey}, ',%')
+        </foreach>
+        order by created_at desc
+    </select>
 
     <!-- 批量删除知识库文档元数据，外部资源清理由服务层先执行。 -->
     <delete id="deleteAiKnowledgeDocumentByIds" parameterType="String">

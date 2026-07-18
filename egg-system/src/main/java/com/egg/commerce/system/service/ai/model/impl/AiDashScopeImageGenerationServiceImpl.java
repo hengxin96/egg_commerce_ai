@@ -82,7 +82,20 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         int maxPolls = environment.getProperty("egg.ai.model-gateway.image.max-polls", Integer.class, 80);
         long deadlineMillis = System.currentTimeMillis() + timeoutSeconds * 1000L;
 
-        JSONObject submitResponse = submitTask(endpoint, apiKey, model, request, remainingDuration(deadlineMillis));
+        JSONObject submitResponse;
+        try
+        {
+            submitResponse = submitTask(endpoint, apiKey, model, request, remainingDuration(deadlineMillis), false);
+        }
+        catch (ServiceException e)
+        {
+            if (!requiresHighDefinitionSizeFallback(request))
+            {
+                throw e;
+            }
+            // Some DashScope model rollouts reject custom 2K sizes; retry once with the stable 1K mapping.
+            submitResponse = submitTask(endpoint, apiKey, model, request, remainingDuration(deadlineMillis), true);
+        }
         String taskId = extractTaskId(submitResponse);
         JSONObject finalResponse = pollTask(endpoint, apiKey, taskId, deadlineMillis, pollIntervalMillis, maxPolls);
 
@@ -96,38 +109,49 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
     }
 
     private JSONObject submitTask(String endpoint, String apiKey, String model, AiImageGenerationRequest request,
-            Duration timeout)
+            Duration timeout, boolean standardSizeFallback)
     {
         JSONObject body = new JSONObject();
         body.put("model", model);
         JSONObject input = new JSONObject();
-        input.put("prompt", request.getPositivePrompt());
-        if (StringUtils.isNotBlank(request.getNegativePrompt()))
-        {
-            input.put("negative_prompt", request.getNegativePrompt());
-        }
+        JSONArray messages = new JSONArray();
+        JSONObject message = new JSONObject();
+        message.put("role", "user");
+        JSONArray content = new JSONArray();
+        JSONObject text = new JSONObject();
+        text.put("text", promptText(request));
+        content.add(text);
         if (request.getReferenceImageUrls() != null && !request.getReferenceImageUrls().isEmpty())
         {
-            input.put("ref_img", request.getReferenceImageUrls().get(0));
-            input.put("reference_image_urls", request.getReferenceImageUrls());
+            for (String imageUrl : request.getReferenceImageUrls())
+            {
+                if (StringUtils.isBlank(imageUrl))
+                {
+                    continue;
+                }
+                JSONObject image = new JSONObject();
+                image.put("image", imageUrl);
+                content.add(image);
+            }
         }
+        message.put("content", content);
+        messages.add(message);
+        input.put("messages", messages);
         body.put("input", input);
 
         JSONObject parameters = new JSONObject();
-        String size = resolveSize(request.getAspectRatio());
+        String size = resolveSize(request, standardSizeFallback);
         if (StringUtils.isNotBlank(size))
         {
             parameters.put("size", size);
         }
-        if (StringUtils.isNotBlank(request.getQuality()))
-        {
-            parameters.put("quality", request.getQuality());
-        }
-        parameters.put("n", 1);
+        parameters.put("n", imageCount(request));
+        parameters.put("enable_sequential", Boolean.TRUE.equals(request.getSequential()));
+        parameters.put("watermark", false);
         body.put("parameters", parameters);
 
         HttpRequest httpRequest = HttpRequest.newBuilder(
-                URI.create(endpoint + "/api/v1/services/aigc/text2image/image-synthesis"))
+                URI.create(endpoint + "/api/v1/services/aigc/image-generation/generation"))
                 .timeout(timeout)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
@@ -135,6 +159,25 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
                 .POST(HttpRequest.BodyPublishers.ofString(body.toJSONString()))
                 .build();
         return sendJson(httpRequest, "DashScope 图片生成任务提交失败");
+    }
+
+    private String promptText(AiImageGenerationRequest request)
+    {
+        if (StringUtils.isBlank(request.getNegativePrompt()))
+        {
+            return request.getPositivePrompt();
+        }
+        return request.getPositivePrompt() + "\n\nAvoid: " + request.getNegativePrompt();
+    }
+
+    private int imageCount(AiImageGenerationRequest request)
+    {
+        int count = request.getImageCount() == null ? 1 : request.getImageCount();
+        if (count < 1 || count > 4)
+        {
+            throw new ServiceException("wan2.7-image-pro non-sequential generation count must be 1-4");
+        }
+        return count;
     }
 
     private JSONObject pollTask(String endpoint, String apiKey, String taskId, long deadlineMillis,
@@ -280,8 +323,9 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         return imageUrls;
     }
 
-    private String resolveSize(String aspectRatio)
+    private String resolveSize(AiImageGenerationRequest request, boolean standardSizeFallback)
     {
+        String aspectRatio = request == null ? null : request.getAspectRatio();
         if (StringUtils.isBlank(aspectRatio))
         {
             return null;
@@ -289,6 +333,21 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         if (aspectRatio.contains("*"))
         {
             return aspectRatio;
+        }
+        if (!standardSizeFallback && "2K".equalsIgnoreCase(StringUtils.trimToEmpty(request.getQuality())))
+        {
+            if ("3:4".equals(aspectRatio))
+            {
+                return "1536*2048";
+            }
+            if ("1:1".equals(aspectRatio))
+            {
+                return "2048*2048";
+            }
+            if ("4:5".equals(aspectRatio))
+            {
+                return "1632*2048";
+            }
         }
         if ("3:4".equals(aspectRatio))
         {
@@ -310,7 +369,21 @@ public class AiDashScopeImageGenerationServiceImpl implements AiImageGenerationS
         {
             return "1024*1024";
         }
+        if ("4:5".equals(aspectRatio))
+        {
+            return "1024*1280";
+        }
         return aspectRatio;
+    }
+
+    private boolean requiresHighDefinitionSizeFallback(AiImageGenerationRequest request)
+    {
+        if (request == null || !"2K".equalsIgnoreCase(StringUtils.trimToEmpty(request.getQuality())))
+        {
+            return false;
+        }
+        String aspectRatio = request.getAspectRatio();
+        return "3:4".equals(aspectRatio) || "1:1".equals(aspectRatio) || "4:5".equals(aspectRatio);
     }
 
     private void sleep(long pollIntervalMillis)

@@ -64,4 +64,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         )
     </insert>
 
+    <!-- 物理删除指定会话内全部回答来源。 -->
+    <delete id="deleteAiChatRetrievalSourcesBySessionId" parameterType="String">
+        delete from ai_chat_retrieval_sources
+        where message_id in (
+            select id
+            from ai_chat_messages
+            where session_id = cast(#{sessionId} as uuid)
+        )
+    </delete>
+
 </mapper>

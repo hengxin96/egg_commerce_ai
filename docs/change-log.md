@@ -950,6 +950,86 @@ Notes:
 - Retry reuses the existing `ai_story_tasks` row and does not create retry history records in this iteration.
 - Completed tasks return “当前任务已完成，无需重试”; processing tasks return “任务正在生成中，请稍后”.
 
+### Refined Story Generation In-Progress Labels
+
+Author: Codex
+
+What changed:
+
+- Changed the story-generation result title to show `生成结果` when the selected node already has generated content, even if later nodes are still processing.
+- Changed the active node's empty result placeholder from `未生成` to `正在生成` while that node is still processing.
+- Kept the change scoped to front-stage story-generation result display; backend generation remains non-streaming.
+
+Why:
+
+- Users need to distinguish completed node results from the currently running node without waiting for the full task to finish.
+
+Main files:
+
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+
+### Refined Story Step Selection State
+
+Author: Codex
+
+What changed:
+
+- Added a separate selected-completed state for story-generation progress steps.
+- Changed completed historical steps selected by the user to use a light green tint instead of the primary black state.
+- Kept the latest current step in the original black selected/current style.
+
+Why:
+
+- Users need a clearer distinction between reviewing completed historical output and tracking the latest active node.
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/styles/main.css`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+
+### Restricted Task Center Downloads To Completed Tasks
+
+Author: Codex
+
+What changed:
+
+- Hid Word and MD download actions for story tasks that are still processing.
+- Added a download guard so non-completed tasks cannot trigger exports through the task-center action path.
+- Added a focused frontend regression test for the completed-only download rule.
+
+Why:
+
+- In-progress story tasks do not yet have final exportable content, so download actions should appear only after completion.
+
+Main files:
+
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/pages/TasksPage.test.js`
+
+### Added Story Task Terminal Notice
+
+Author: Codex
+
+What changed:
+
+- Added a bottom-right in-page notice when a story task completes or fails.
+- Completion copy points users to the task center to view the finished task.
+- Failure copy points users to the task center to inspect the failure reason or retry.
+- Styled the notice with the front-stage platform card language: white surface, light border, 8px radius, restrained shadow, and state color accents.
+
+Why:
+
+- Users need a visible status handoff after background story generation reaches a terminal state.
+
+Main files:
+
+- `egg-user-web/src/pages/StoryGenerationPage.vue`
+- `egg-user-web/src/styles/main.css`
+- `egg-user-web/src/components/GeneratorWorkspace.story.test.js`
+
 ## 2026-07-15
 
 ### Added Full-Category Product Image Generation
@@ -983,3 +1063,432 @@ Notes:
 
 - Prompt content is read from the existing prompt-template feature; no duplicate prompt template seed data is added here.
 - Manual smoke still requires valid DashScope and Ali OSS credentials plus the product-image SQL migration.
+
+## 2026-07-16
+
+### Added Copy-Ready AI Requirement Rewrite Prompt
+
+Author: Codex
+
+What changed:
+
+- Appended a copy-ready `AI帮写优化提示词` body to the v3 full-category product image prompt document.
+- Aligned the prompt with the current rewrite service template name, `AI优化提示词` category, available backend variables, and JSON response shape.
+- Avoided obsolete `{assetType}` and `{imageCount}` placeholders because the current backend does not inject them into the rewrite template.
+
+Why:
+
+- The product image quality upgrade changed the generation workflow, but the AI helper rewrite prompt still reflected the older v2 prompt assumptions.
+
+Main files:
+
+- `docs/prompts/AI生图提示词方案v3_全品类商品图质量升级.md`
+
+Notes:
+
+- This is a prompt-document update only. Runtime code was not changed.
+
+### Reformatted Product Image Prompt Template Document
+
+Author: Codex
+
+What changed:
+
+- Rewrote the v3 full-category product image prompt document into two copy-ready backend prompt template bodies.
+- Kept `主图系统提示词` and `详情图系统提示词` aligned with the current `AI生图` category, backend variables, and `content.body` storage format.
+
+Why:
+
+- The previous document was a prompt design guide with split snippets, which was hard to paste into the admin prompt-template editor directly.
+
+Main files:
+
+- `docs/prompts/AI生图提示词方案v3_全品类商品图质量升级.md`
+
+Notes:
+
+- This is a documentation/template-format change only. Runtime code was not changed.
+
+### Implemented Product Image Quality Upgrade Phase 1-3
+
+Author: Codex
+
+What changed:
+
+- Upgraded full-category product image generation to run real vision analysis first, stop at a user-confirmable planning step, and continue generation only after confirmation.
+- Added source-image ordering and primary-reference selection, plus confirm/replan task APIs.
+- Added base/final image preservation: model output is stored as `generated_base`, backend-composed final output is stored as `generated`, and user pages only display/download final images.
+- Added a Java2D text-composition service for controlled ecommerce text overlay.
+- Added non-blocking product image audit: local rule checks plus vision-model audit write `ruleAudit`, `visionAudit`, and `auditSummary` into `generation_output`.
+- Updated product generation, product detail, and task center UI to show final-image audit status badges.
+- Aligned DashScope `wan2.7-image-pro` calls with supported parameters by avoiding `negative_prompt`/`prompt_extend` and explicitly setting `watermark=false`.
+
+Why:
+
+- The product image workflow needed competitor-style visual understanding, editable generation planning, controlled text rendering, final-only user display, and a quality feedback loop while still producing real OSS-backed images.
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl`
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/product`
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/pages/ProductDetailPage.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-user-web/src/components/product/ProductImageAuditBadge.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `docs/prompts/AI生图提示词方案v3_全品类商品图质量升级.md`
+- `.env.example`
+- `egg-admin/src/main/resources/application.yml`
+
+Notes:
+
+- Audit warnings do not block task completion; the generated final images remain visible with risk status.
+- Manual smoke still requires valid DashScope and OSS credentials.
+
+### Planned Product Image Quality Upgrade
+
+Author: Codex
+
+What changed:
+
+- Added a Chinese implementation planning document for upgrading the full-category product image workflow.
+- The plan covers true visual understanding with `qwen3.7-plus`, confirmable planning, deterministic text composition, base/final image preservation, and rule plus visual audit.
+- Captured Ali DashScope parameter boundaries for `qwen3.7-plus` Chat Completions and `wan2.7-image-pro` image generation.
+
+Why:
+
+- The current product image workflow generates real assets but lacks the competitor-style visual analysis, editable planning, controlled text overlay, and post-generation quality loop needed for stronger ecommerce outputs.
+
+Main files:
+
+- `docs/2026-07-16-product-image-quality-upgrade-plan.zh-CN.md`
+
+Notes:
+
+- This is a planning/documentation change only. Code execution should start after user approval of the plan.
+
+### 调整商品图上传缩略图与 AI 帮写交互
+
+Author: Codex
+
+What changed:
+
+- 将上传缩略图删除按钮从左上角移动到右上角。
+- 将缩略图编号改为更小的半透明角标，并与右上角删除按钮的边距对齐。
+- 将第一张图的半透明“主参考”标签移动到缩略图底部居中。
+- 去掉其余缩略图上的“设为主图”按钮，保留拖动排序决定主参考图。
+- 修复 AI 帮写按钮在文本域表单项内点击不稳定的问题：按钮不再嵌套在 `label` 中，点击会直接交给父页面调用后端帮写接口，并补充前端回归测试。
+
+Why:
+
+- 商品图上传区需要减少视觉干扰，让用户通过拖动第一张图来决定主参考图，同时保证 AI 帮写按钮点击后有明确响应。
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/styles/main.css`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+
+### 升级全品类商品图文字开关与提示词参数链路
+
+Author: Codex
+
+What changed:
+
+- Added a `图片带文字` yes/no control to the full-category product image workspace, defaulting to no.
+- Passed target language, text-enabled mode, selected model, aspect ratio, clarity, and image count into backend task params and prompt variables.
+- Made no-text mode force `textOverlay.enabled=false`, skip Java2D text composition, and return generated base-image content as the final image.
+- Updated Java2D text composition to read planning `typography` for position, color, shadow, stroke, opacity, and lightweight panel metadata.
+- Moved product image visual analysis and visual audit prompts to published backend templates.
+- Added 2K DashScope size mapping for supported ratios and created the v4 copy-ready prompt document.
+
+Why:
+
+- Full-category product image generation needs cleaner no-text outputs, style-adaptive text planning when enabled, better prompt control, and more visible clarity/model behavior.
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/model/impl/AiDashScopeImageGenerationServiceImpl.java`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiJava2DProductImageCompositionServiceImplTest.java`
+- `docs/feature-map.md`
+- `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v4_全品类商品图质感与文字升级.md`
+
+Notes:
+
+- Backend visual analysis uses `商品图视觉分析提示词` / `AI视觉分析`.
+- Backend visual audit uses `商品图视觉审核提示词` / `AI视觉审核`.
+
+### 收窄商品图 AI 帮写上下文
+
+Author: Codex
+
+What changed:
+
+- Changed product-image AI requirement rewrite so it only receives the current user requirement, target platform, and platform rules.
+- Removed target language, text-enabled mode, image count, asset type, and product asset context from the frontend rewrite payload.
+- Updated the v4 copy-ready prompt document so `AI帮写优化提示词` no longer asks for system generation parameters.
+
+Why:
+
+- AI 帮写 should only make the user's current main-image requirement easier for the model to understand; generation parameters belong to the later system planning prompts.
+
+Main files:
+
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductRequirementRewriteServiceImpl.java`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiProductRequirementRewriteServiceImplTest.java`
+- `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v4_全品类商品图质感与文字升级.md`
+
+### 修复商品图临时图片下载失败的脆弱点
+
+Author: Codex
+
+What changed:
+
+- 将商品图任务下载 DashScope 临时图片的逻辑从单次 `URL.openStream()` 改为带超时、HTTP 状态检查和短重试的 `HttpClient` 下载。
+- 失败原因现在会保留脱敏后的下载源 host、HTTP 状态或网络异常摘要，避免只显示泛化的“下载生成图片失败”。
+- 商品图任务失败时会写入服务端 warning/error 日志，便于按任务 id 和节点继续追踪。
+- 添加了本地 HTTP 复现测试，覆盖首次 503、重试后成功的临时下载场景。
+
+Why:
+
+- 实际失败任务的 DashScope 图片生成已经成功，问题出在后端转存前下载临时 OSS 图片时；原代码单次下载且吞掉底层异常，容易把瞬时网络或 OSS 状态抖动变成不可诊断的终态失败。
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiProductImageTaskServiceImplTest.java`
+
+### 修复生成图 MIME 元数据缺失导致的审核误报
+
+Author: Codex
+
+What changed:
+
+- 生成图以字节流上传 OSS 时，根据扩展名推导 `image/png`、`image/jpeg`、`image/webp` 等 MIME 类型。
+- 上传 OSS 时同步设置对象 `Content-Type`，并把 MIME 写回 `AiStoredObject`，供图片表和 `generation_output.images[].finalMimeType` 持久化。
+- 添加存储层回归测试，覆盖生成图扩展名到 MIME 类型的推导。
+
+Why:
+
+- 商品图最终图已经生成成功，但 `uploadGeneratedImage` 之前返回的 `mimeType` 是空，导致本地审核规则把每张最终图标记为 `Final generated image MIME type is missing.`。
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/storage/impl/AiAliOssObjectStorageServiceImpl.java`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/storage/AiAliOssObjectStorageServiceImplTest.java`
+
+## 2026-07-17
+
+### 调整生成图预览按钮样式
+
+Author: Codex
+
+What changed:
+
+- 将商品图生成结果的预览按钮从白底放大镜改为深色半透明圆形眼睛按钮。
+- 商品库详情页共享图库和任务中心单图预览兜底样式保持一致。
+
+Why:
+
+- 预览入口需要更贴近上传图片区块里的悬浮眼睛按钮样式，降低界面风格割裂。
+
+Main files:
+
+- `egg-user-web/src/components/product/SelectableImageGallery.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/pages/ProductDetailPage.test.js`
+- `egg-user-web/src/pages/TasksPage.test.js`
+
+### 优化商品图预览和任务中心实时刷新
+
+Author: Codex
+
+What changed:
+
+- 商品库详情页和任务中心「查看内容」里的生成图卡片新增预览按钮，点击后可放大查看图片。
+- 任务中心增加静默自动刷新，列表和已打开的任务详情会定时拉取最新状态。
+- 顶部主导航隐藏「风格复刻」入口，保留相关页面和路由代码以便后续恢复。
+
+Why:
+
+- 生成图需要更方便地逐张检查细节，任务状态也需要自动更新，避免用户反复手动刷新才看到结果或提示。
+
+Main files:
+
+- `egg-user-web/src/components/product/SelectableImageGallery.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/data/mock.js`
+- `egg-user-web/src/layout/UserShell.navigation.test.js`
+- `egg-user-web/src/pages/ProductDetailPage.test.js`
+- `egg-user-web/src/pages/TasksPage.test.js`
+
+### 打通任务中心商品图规划确认
+
+Author: Codex
+
+What changed:
+
+- 任务中心商品图「查看内容」复用全品类商品图的规划确认编辑器，不再单独展示 AI 分析 JSON。
+- 商品图任务在任务中心重试并重新生成规划后，会在右下角提示用户查看并确认规划，直达按钮会打开当前任务详情弹窗。
+- 任务中心可直接确认生成或重新规划，重新规划可提交补充要求。
+- 商品库新生成的默认未命名商品会用视觉分析 `productNameGuess` 自动命名，用户已重命名的商品不覆盖。
+- 商品详情页改为生成图片在上、商品信息在下，并只读展示最新成功任务的整体设计规范。
+
+Why:
+
+- 规划节点失败后从任务中心重试仍需要回到可确认的规划闭环，同时商品库和详情页要展示更有意义的商品名称与设计依据。
+
+Main files:
+
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/pages/ProductDetailPage.vue`
+- `egg-system/src/main/java/com/egg/commerce/system/domain/ai/product/AiProductAssetDetail.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductAssetServiceImpl.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+
+### 优化商品图规划确认和多方案生成
+
+Author: Codex
+
+What changed:
+
+- 将商品图「分析中」和「生成中」右侧输出改为简短状态文案加加载进度条，不再展示中间 JSON。
+- 将「确认规划」内容移入右侧输出框，展示 AI 视觉分析、整体设计规范、分图方案和确认按钮。
+- 主图多张生成改为必须规划足量且不同的 `imagePrompts`，不足时自动重规划最多 2 次，仍不足则失败并提示 `规划方案数量不足，请重新规划`。
+- 生成阶段按每个主图方案单独请求 1 张图，保证分图方案、文字规划和最终图一一对应。
+- 清洗规划 JSON 中的重复标点，并生成 v5 多方案规划提示词文档。
+
+Why:
+
+- 避免生成数量为 2 时只有 1 个分图方案、最终图片过度相似、文字规划不可见，以及规划内容把页面撑长的问题。
+
+Main files:
+
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiProductImageTaskServiceImplTest.java`
+- `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v5_全品类商品图多方案规划优化.md`
+
+### 优化商品图任务节点视觉反馈
+
+Author: Codex
+
+What changed:
+
+- 将商品图「分析中」和「生成中」节点的加载进度条固定展示在结果输出框上方。
+- 重排「确认规划」节点内容，增加规划摘要、分区编号、紧凑的视觉分析区和更清晰的分图方案编辑区。
+- 修复分图方案字段标签挤压和灰底过重的问题，让标题、设计目标、文案、文字位置和融合字效更易读。
+
+Why:
+
+- 问题记录 05-08 显示加载条位置偏下、确认规划内容像粗糙表单，影响用户确认规划和编辑多图文案方案。
+
+Main files:
+
+- `egg-user-web/src/components/GeneratorWorkspace.vue`
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+
+### 修复详情图规划兼容字段误判
+
+Author: Codex
+
+What changed:
+
+- 后端商品图规划解析会跳过空的顶层 `imagePrompt`，继续从 `imagePrompts` 或 `imagePlans` 中读取有效详情图方案。
+- 增加回归测试，覆盖详情图提示词返回 `imagePrompt: {}` 但 `imagePrompts` 有效时仍可进入确认规划并生成。
+- 生成 v6 详情图提示词文档，要求 `imagePrompt` 必须等于 `imagePrompts[0]`，不再输出空对象。
+
+Why:
+
+- 详情图生成任务在确认规划前失败，原因是提示词兼容字段为空对象，后端旧解析逻辑误判为缺少有效 `imagePrompt`。
+
+Main files:
+
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+- `egg-system/src/test/java/com/egg/commerce/system/service/ai/product/AiProductImageTaskServiceImplTest.java`
+- `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v6_全品类商品图详情规划兼容修复.md`
+
+### 升级对标式商品图规划提示词与确认页面
+
+Author: Codex
+
+What changed:
+
+- 生成 v7 商品图提示词文档，覆盖主图、详情图、AI 帮写、视觉分析和视觉审核 5 个后台模板。
+- 将商品图确认规划页升级为对标式层级展示：整体设计规范展示视觉风格、氛围营造、色彩系统、字体系统和视觉语言；分图方案展示产品出现、产品还原、内容要素和只读生图提示词。
+- 保留重点字段可编辑，`positivePrompt` 只读展示，避免用户误改真正进入图片模型的核心提示词。
+
+Why:
+
+- 商品图规划节点需要更接近对标产品的大规划 / 小规划结构，同时保持后端生图链路兼容和可确认。
+
+Main files:
+
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+- `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v7_对标式规划节点与全品类商品图提示词升级.md`
+
+### 调整商品图规划确认布局和详情轮询
+
+Author: Codex
+
+What changed:
+
+- 将商品图“确认规划”中的 AI 视觉分析和整体设计规范改为上下排列。
+- 调整分图方案卡片：方案编号缩小，标题输入框不再预留左侧空位，图像定位、视觉执行、内容要素、文字内容等区域改为铺满单列。
+- 暂时隐藏分图方案里的“只读生图提示词”展示，但保留 `positivePrompt` 数据进入确认生成链路。
+- 收紧商品图生成页和任务中心的单任务详情轮询，确认规划、完成、失败等静止状态不再反复查询同一条任务详情。
+- 商品详情页的整体设计规范改为和确认规划节点一致的分组明细展示，避免嵌套对象显示为 `[object Object]`。
+
+Why:
+
+- 这些调整让规划确认页更接近对标产品的信息层级，减少右侧空白和后台重复查询噪声，并让商品库详情能正确复盘规划内容。
+
+Main files:
+
+- `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/pages/ProductDetailPage.vue`
+- `egg-user-web/src/pages/TasksPage.vue`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+- `egg-user-web/src/pages/ProductDetailPage.test.js`
+- `egg-user-web/src/pages/TasksPage.test.js`
+
+### Remove Legacy Storage References From Core Docs And Local Config
+
+Author: Codex
+
+What changed:
+
+- Replaced legacy storage references in the project constitution, README, feature map, and phase-one module configuration with current object-storage wording.
+- Updated `phase-one-module-configuration.md` and `.env.example` to use Ali OSS environment variables instead of legacy storage variables.
+- Removed the legacy object-storage service from `compose.postgres.yml` so local startup only brings up PostgreSQL and Redis.
+
+Why:
+
+- The project now uses object storage instead of the legacy storage setup, so the core docs and local configuration examples needed to match the current storage setup and stop advertising a removed dependency.
+
+Main files:
+
+- `docs/project-constitution.md`
+- `README.md`
+- `docs/feature-map.md`
+- `docs/phase-one-module-configuration.md`
+- `.env.example`
+- `compose.postgres.yml`

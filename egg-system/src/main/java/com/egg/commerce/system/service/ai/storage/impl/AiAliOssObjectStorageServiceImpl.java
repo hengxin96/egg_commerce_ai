@@ -6,6 +6,7 @@ import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectListing;
 import com.aliyun.oss.model.OSSObjectSummary;
 import com.aliyun.oss.model.ListObjectsRequest;
+import com.aliyun.oss.model.ObjectMetadata;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.common.utils.DateUtils;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
@@ -106,10 +107,15 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         }
         AiAliOssSettings oss = requireAliOssConfig();
         String objectKey = buildGeneratedObjectKey(oss.getObjectPrefix(), userId, extension);
+        String mimeType = generatedImageMimeType(extension);
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(bytes.length);
+        metadata.setContentType(mimeType);
         OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
         try (InputStream inputStream = new ByteArrayInputStream(bytes))
         {
-            client.putObject(oss.getBucket(), objectKey, inputStream);
+            // Generated images are uploaded from raw bytes, so MultipartFile cannot supply content type for audit/download.
+            client.putObject(oss.getBucket(), objectKey, inputStream, metadata);
         }
         catch (Exception e)
         {
@@ -119,7 +125,7 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         {
             client.shutdown();
         }
-        return buildStoredObject(oss, objectKey, bytes.length, null);
+        return buildStoredObject(oss, objectKey, bytes.length, mimeType);
     }
 
     @Override
@@ -213,6 +219,30 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         catch (Exception e)
         {
             throw new ServiceException("OSS 对象下载失败");
+        }
+        finally
+        {
+            client.shutdown();
+        }
+    }
+
+    @Override
+    public String presignObjectUrl(String objectKey, long expireSeconds)
+    {
+        if (StringUtils.isBlank(objectKey))
+        {
+            throw new ServiceException("OSS object key cannot be blank");
+        }
+        AiAliOssSettings oss = requireAliOssConfig();
+        OSS client = new OSSClientBuilder().build(oss.getEndpoint(), oss.getAccessKeyId(), oss.getAccessKeySecret());
+        try
+        {
+            Date expiration = new Date(System.currentTimeMillis() + Math.max(1L, expireSeconds) * 1000L);
+            return client.generatePresignedUrl(oss.getBucket(), objectKey, expiration).toString();
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("OSS presigned URL generation failed");
         }
         finally
         {
@@ -325,6 +355,19 @@ public class AiAliOssObjectStorageServiceImpl implements AiObjectStorageService
         storedObject.setSize(size);
         storedObject.setMimeType(mimeType);
         return storedObject;
+    }
+
+    private static String generatedImageMimeType(String extension)
+    {
+        String normalized = StringUtils.lowerCase(StringUtils.stripStart(StringUtils.defaultIfBlank(extension, "png"), "."));
+        return switch (normalized)
+        {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "webp" -> "image/webp";
+            case "gif" -> "image/gif";
+            case "bmp" -> "image/bmp";
+            default -> "image/png";
+        };
     }
 
     private String buildKnowledgeObjectKey(String objectPrefix, String extension)

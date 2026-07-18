@@ -15,6 +15,14 @@ public interface AiPromptTemplateMapper
     /** 按条件查询模板列表。 */
     List<AiPromptTemplate> selectAiPromptTemplateList(AiPromptTemplate promptTemplate);
 
+    /** 按剧情生成运行时规则查询已发布模板，可按平台前缀和兼容分类定位。 */
+    AiPromptTemplate selectPublishedTemplateForStoryStage(@Param("category") String category,
+            @Param("platformPrefix") String platformPrefix,
+            @Param("fallbackCategories") List<String> fallbackCategories);
+
+    /** 按分类查询最新已发布模板，供 RAG 聊天等通用 AI 能力运行时使用。 */
+    AiPromptTemplate selectPublishedTemplateByCategory(@Param("category") String category);
+
     /** 按模板名称和分类查询最新已发布模板，供商品图主图、详情图和 AI 帮写运行时使用。 */
     AiPromptTemplate selectPublishedTemplateByNameAndCategory(@Param("name") String name,
             @Param("category") String category);

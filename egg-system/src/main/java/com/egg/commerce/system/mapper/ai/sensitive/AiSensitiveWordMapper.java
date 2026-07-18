@@ -14,6 +14,9 @@ public interface AiSensitiveWordMapper
     /** 按条件查询敏感词列表，通常会联查分类名称用于后台展示。 */
     List<AiSensitiveWord> selectAiSensitiveWordList(AiSensitiveWord query);
 
+    /** 查询所有启用的敏感词内容，用于用户提问入模前拦截。 */
+    List<String> selectEnabledSensitiveWords();
+
     /** 新增敏感词条。 */
     int insertAiSensitiveWord(AiSensitiveWord word);
 

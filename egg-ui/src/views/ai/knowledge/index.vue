@@ -40,6 +40,14 @@
           :loading="downloading"
           @click="handleBatchDownload"
         >批量下载</el-button>
+        <el-button
+          type="success"
+          size="small"
+          icon="el-icon-user"
+          :disabled="selectedRows.length === 0"
+          @click="handleOpenAccessDialog"
+          v-hasPermi="['ai:knowledge:upload']"
+        >设置权限</el-button>
         <el-form-item label="文件名:" prop="fileName">
           <el-input
             v-model="queryParams.fileName"
@@ -48,6 +56,18 @@
             clearable
             @keyup.enter.native="handleQuery"
           />
+        </el-form-item>
+        <el-form-item label="访问角色:" prop="accessRoles">
+          <el-select
+            v-model="queryParams.accessRoles"
+            class="knowledge-toolbar__select"
+            placeholder="全部"
+            clearable
+            @change="handleQuery"
+          >
+            <el-option label="管理员" value="admin" />
+            <el-option label="普通用户" value="common" />
+          </el-select>
         </el-form-item>
         <el-button type="primary" size="small" :loading="loading" @click="handleQuery">搜索</el-button>
       </div>
@@ -87,6 +107,19 @@
           <span>{{ scope.row.chunkCount || 0 }}</span>
         </template>
       </el-table-column>
+      <el-table-column label="访问角色" width="170" align="center">
+        <template slot-scope="scope">
+          <el-tag
+            v-for="role in parseAccessRoles(scope.row.accessRoles)"
+            :key="role"
+            class="knowledge-access-tag"
+            :type="accessRoleType(role)"
+            size="mini"
+          >
+            {{ accessRoleLabel(role) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="上传时间" width="180">
         <template slot-scope="scope">
           <span>{{ parseTime(scope.row.createdAt) }}</span>
@@ -123,6 +156,29 @@
       :limit.sync="queryParams.pageSize"
       @pagination="getList"
     />
+
+    <el-dialog title="设置访问权限" :visible.sync="accessDialog.open" width="420px" append-to-body>
+      <el-form label-width="96px" size="small">
+        <el-form-item label="已选文档">
+          <span>{{ selectedRows.length }} 个</span>
+        </el-form-item>
+        <el-form-item label="访问角色">
+          <el-checkbox-group v-model="accessDialog.accessRoles">
+            <el-checkbox label="admin" disabled>管理员</el-checkbox>
+            <el-checkbox label="common">普通用户</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="accessDialog.open = false">取消</el-button>
+        <el-button
+          type="primary"
+          size="small"
+          :loading="accessDialog.submitting"
+          @click="submitAccessRoles"
+        >确定</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -132,6 +188,7 @@ import {
   getKnowledgeDownloadUrls,
   listKnowledge,
   retryKnowledge,
+  updateKnowledgeAccessRoles,
   uploadKnowledgeBatch
 } from '@/api/ai/knowledge'
 
@@ -150,11 +207,17 @@ export default {
       knowledgeList: [],
       fileList: [],
       selectedRows: [],
+      accessDialog: {
+        open: false,
+        submitting: false,
+        accessRoles: ['admin']
+      },
       queryParams: {
         pageNum: 1,
         pageSize: 10,
         fileName: undefined,
-        status: undefined
+        status: undefined,
+        accessRoles: undefined
       }
     }
   },
@@ -230,6 +293,33 @@ export default {
     },
     handleSelectionChange(selection) {
       this.selectedRows = selection
+    },
+    handleOpenAccessDialog() {
+      if (this.selectedRows.length === 0) {
+        this.$modal.msgWarning('请先选择要设置权限的文件')
+        return
+      }
+      const hasCommon = this.selectedRows.some(row => this.parseAccessRoles(row.accessRoles).includes('common'))
+      this.accessDialog.accessRoles = hasCommon ? ['admin', 'common'] : ['admin']
+      this.accessDialog.open = true
+    },
+    submitAccessRoles() {
+      const ids = this.selectedRows.map(row => row.id)
+      if (ids.length === 0) {
+        this.$modal.msgWarning('请先选择要设置权限的文件')
+        return
+      }
+      this.accessDialog.submitting = true
+      updateKnowledgeAccessRoles({
+        ids,
+        accessRoles: this.accessDialog.accessRoles
+      }).then(() => {
+        this.$modal.msgSuccess('权限已更新')
+        this.accessDialog.open = false
+        this.getList()
+      }).finally(() => {
+        this.accessDialog.submitting = false
+      })
     },
     handleBatchDelete() {
       if (this.selectedRows.length === 0) {
@@ -332,6 +422,26 @@ export default {
         failed: 'danger'
       }
       return types[status] || 'info'
+    },
+    parseAccessRoles(accessRoles) {
+      const roles = (accessRoles || 'admin').split(',')
+        .map(role => role.trim())
+        .filter(Boolean)
+      return roles.length > 0 ? roles : ['admin']
+    },
+    accessRoleLabel(role) {
+      const labels = {
+        admin: '管理员',
+        common: '普通用户'
+      }
+      return labels[role] || role
+    },
+    accessRoleType(role) {
+      const types = {
+        admin: 'danger',
+        common: 'success'
+      }
+      return types[role] || 'info'
     }
   }
 }
@@ -429,8 +539,16 @@ export default {
   width: 250px;
 }
 
+.knowledge-toolbar__select {
+  width: 150px;
+}
+
 .knowledge-table {
   background: #fff;
+}
+
+.knowledge-access-tag + .knowledge-access-tag {
+  margin-left: 6px;
 }
 
 .knowledge-table ::v-deep th {

@@ -19,4 +19,7 @@ public interface AiChatSessionMapper
 
     /** 更新会话摘要、消息数和最近消息时间。 */
     int updateAiChatSession(AiChatSession session);
+
+    /** 按会话 ID 物理删除聊天会话。 */
+    int deleteAiChatSessionById(String id);
 }

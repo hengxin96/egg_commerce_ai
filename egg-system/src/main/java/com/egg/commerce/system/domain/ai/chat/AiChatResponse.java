@@ -11,6 +11,8 @@ public class AiChatResponse
 
     private String messageId;
 
+    private String title;
+
     private String answer;
 
     private List<AiChatRetrievalSource> sources;
@@ -33,6 +35,16 @@ public class AiChatResponse
     public void setMessageId(String messageId)
     {
         this.messageId = messageId;
+    }
+
+    public String getTitle()
+    {
+        return title;
+    }
+
+    public void setTitle(String title)
+    {
+        this.title = title;
     }
 
     public String getAnswer()

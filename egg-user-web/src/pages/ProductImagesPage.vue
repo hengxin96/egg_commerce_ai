@@ -23,27 +23,60 @@
       :result-sections="resultSections"
       :can-download="canDownload"
       :download-options="[{ label: '下载图片', value: 'image' }]"
+      :prompt-helper-loading="isRewriting"
       @upload-image="handleUploadImage"
       @remove-image="handleRemoveImage"
+      @reorder-image="handleReorderImages"
+      @set-primary-image="handleReorderImages"
       @generate="handleGenerate"
       @select-step="handleSelectStep"
       @download="handleDownload"
       @rewrite-requirement="handleRewriteRequirement"
       @cancel="handleCancelTask"
-    />
+    >
+      <template #plan-confirmation="{ section }">
+        <ProductImagePlanEditor
+          embedded
+          :analysis-output="section.analysisOutput"
+          :planning-output="section.planningOutput"
+          :text-enabled="section.textEnabled"
+          :confirming="section.confirming"
+          :replanning="section.replanning"
+          :user-requirement="section.userRequirement"
+          @confirm="handleConfirmPlan"
+          @replan="handleReplan"
+        />
+      </template>
+    </GeneratorWorkspace>
 
     <el-dialog
       v-model="rewriteDialogVisible"
-      title="AI 帮写结果"
       width="520px"
       class="product-rewrite-dialog"
     >
-      <p class="product-rewrite-preview">
-        {{ rewriteResult?.optimizedRequirement || '暂无可替换内容' }}
+      <template #header>
+        <div class="product-rewrite-title">
+          <span>AI 帮写结果</span>
+          <el-icon v-if="isRewriting" class="product-rewrite-loading"><Loading /></el-icon>
+        </div>
+      </template>
+      <p
+        class="product-rewrite-preview"
+        :class="{ 'is-waiting': isRewriting && !rewriteStreamText }"
+      >
+        {{ rewritePreviewText }}
       </p>
+      <p v-if="rewriteError" class="product-rewrite-error">{{ rewriteError }}</p>
       <template #footer>
-        <el-button @click="rewriteDialogVisible = false">退出</el-button>
-        <el-button type="primary" @click="applyRewriteResult">替换</el-button>
+        <el-button :disabled="isRewriting" @click="rewriteDialogVisible = false">退出</el-button>
+        <el-button
+          type="primary"
+          :loading="isRewriting"
+          :disabled="!canApplyRewrite"
+          @click="applyRewriteResult"
+        >
+          替换
+        </el-button>
       </template>
     </el-dialog>
 
@@ -84,18 +117,22 @@
 import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowRight, CircleCheck, CircleClose, Close } from '@element-plus/icons-vue'
+import { ArrowRight, CircleCheck, CircleClose, Close, Loading } from '@element-plus/icons-vue'
 import GeneratorWorkspace from '@/components/GeneratorWorkspace.vue'
+import ProductImagePlanEditor from '@/components/product/ProductImagePlanEditor.vue'
 import { handleAuthFailure } from '@/utils/authGuard'
 import {
   cancelProductImageTask,
+  confirmProductImageTask,
   createProductImageTask,
   deleteDraftImage,
   downloadProductAsset,
   getProductAsset,
   getProductDraft,
   getProductImageTask,
-  rewriteProductRequirement,
+  replanProductImageTask,
+  rewriteProductRequirementStream,
+  updateDraftImageOrder,
   uploadDraftImage
 } from '@/api/productImage'
 
@@ -109,9 +146,14 @@ const generatedAsset = shallowRef(null)
 const selectedStep = shallowRef('输入')
 const isUploading = shallowRef(false)
 const isCreating = shallowRef(false)
+const isConfirmingPlan = shallowRef(false)
+const isReplanning = shallowRef(false)
 const taskNotice = shallowRef(null)
 const rewriteDialogVisible = shallowRef(false)
 const rewriteResult = shallowRef(null)
+const rewriteStreamText = shallowRef('')
+const rewriteError = shallowRef('')
+const isRewriting = shallowRef(false)
 const workspacePrompt = shallowRef('')
 const workspaceResetKey = shallowRef(0)
 const requestGeneration = shallowRef(0)
@@ -120,8 +162,16 @@ let pollTimer = null
 const activeStep = computed(() => currentTask.value?.currentNode || '输入')
 const failedStep = computed(() => currentTask.value?.status === 'failed' ? currentTask.value.currentNode : '')
 const isTaskProcessing = computed(() => currentTask.value?.status === 'processing' || isCreating.value)
-const canCancelCurrentTask = computed(() => Boolean(currentTask.value?.id) && currentTask.value.status === 'processing')
+const showPlanEditor = computed(() => currentTask.value?.status === 'waiting_confirmation')
+const canCancelCurrentTask = computed(() => Boolean(currentTask.value?.id)
+  && ['processing', 'waiting_confirmation'].includes(currentTask.value.status))
 const canDownload = computed(() => currentTask.value?.status === 'completed' && Boolean(generatedImages.value.length))
+const canApplyRewrite = computed(() => !isRewriting.value && Boolean(rewriteResult.value?.optimizedRequirement))
+const rewritePreviewText = computed(() => (
+  rewriteStreamText.value
+  || rewriteResult.value?.optimizedRequirement
+  || (isRewriting.value ? '正在帮写，请稍候...' : '暂无可替换内容')
+))
 const activeStepIndex = computed(() => Math.max(PRODUCT_IMAGE_STEPS.indexOf(activeStep.value), 0))
 const completedSteps = computed(() => {
   if (!currentTask.value) {
@@ -133,8 +183,21 @@ const completedSteps = computed(() => {
   return PRODUCT_IMAGE_STEPS.filter((_, index) => index < activeStepIndex.value)
 })
 const generatedImages = computed(() => generatedAsset.value?.generatedImages || [])
+const generationOutput = computed(() => parseGenerationOutput(currentTask.value?.generationOutput))
+const currentPlanTextEnabled = computed(() => taskTextEnabled(currentTask.value))
 const sourceImages = computed(() => generatedAsset.value?.sourceImages || uploadedImages.value)
-const resultTitle = computed(() => isTaskProcessing.value ? '生成中' : '生成结果')
+const resultTitle = computed(() => {
+  if (selectedStep.value === '分析中') {
+    return '分析中'
+  }
+  if (selectedStep.value === '确认规划') {
+    return '确认规划'
+  }
+  if (selectedStep.value === '生成中') {
+    return '生成中'
+  }
+  return currentTask.value?.status === 'completed' ? '生成结果' : '生成结果'
+})
 const resultSubtitle = computed(() => {
   if (!currentTask.value) {
     return '上传产品图并填写要求后，点击开始分析'
@@ -145,6 +208,9 @@ const resultSubtitle = computed(() => {
   if (currentTask.value.status === 'failed') {
     return currentTask.value.failureReason || '当前节点生成失败，可前往任务中心重试'
   }
+  if (currentTask.value.status === 'waiting_confirmation') {
+    return '规划已生成，可在右侧确认生成或重新规划'
+  }
   return `当前节点：${currentTask.value.currentNode || '分析中'}`
 })
 const emptyMessage = computed(() => {
@@ -153,6 +219,9 @@ const emptyMessage = computed(() => {
   }
   if (currentTask.value.status === 'failed') {
     return currentTask.value.failureReason || '任务生成失败，请前往任务中心查看或重试'
+  }
+  if (currentTask.value.status === 'waiting_confirmation') {
+    return '规划已生成\n请在右侧确认生成或重新规划'
   }
   return '后台正在生成商品图，节点完成后会展示内容'
 })
@@ -168,26 +237,58 @@ const resultSections = computed(() => {
     }]
   }
   if (selectedStep.value === '分析中') {
-    return [{ title: 'AI 分析结果', content: jsonText(currentTask.value.analysisOutput) }]
+    return [processingSection('AI 正在分析', '正在分析商品图，请稍候')]
   }
   if (selectedStep.value === '确认规划') {
+    if (showPlanEditor.value) {
+      return [{
+        type: 'plan-confirmation',
+        title: '确认规划',
+        analysisOutput: currentTask.value.analysisOutput,
+        planningOutput: currentTask.value.planningOutput,
+        textEnabled: currentPlanTextEnabled.value,
+        confirming: isConfirmingPlan.value,
+        replanning: isReplanning.value,
+        userRequirement: (draft.value?.asset || generatedAsset.value?.asset || {}).userRequirement || ''
+      }]
+    }
     return [{ title: '规划内容', content: jsonText(currentTask.value.planningOutput) }]
   }
+  if (selectedStep.value === '生成中' && currentTask.value.status !== 'completed') {
+    return [processingSection('AI 正在生成', '正在生成商品图，请稍候')]
+  }
   if (selectedStep.value === '生成中' || selectedStep.value === '完成') {
+    if (generatedImages.value.length) {
+      return generatedImages.value.map((image, index) => ({
+        title: `${selectedStep.value === '完成' ? '生成结果' : '生成中'} ${index + 1}`,
+        imageUrl: image.ossUrl || image.url || image.temporaryUrl,
+        content: `生成图 ${index + 1}`,
+        audit: auditForImage(image, index)
+      }))
+    }
     return [{
       title: selectedStep.value === '完成' ? '生成结果' : '生成中',
-      imageUrl: generatedImages.value[0]?.ossUrl || generatedImages.value[0]?.url,
       content: jsonText(currentTask.value.generationOutput)
     }]
   }
   return []
 })
 
+function processingSection(title, statusText) {
+  // Processing nodes intentionally hide raw intermediate JSON; users only need to know the backend is still working.
+  return {
+    type: 'loading',
+    title,
+    statusText
+  }
+}
+
 function normalizeDraftImages(detail) {
-  return detail?.sourceImages?.map((image) => ({
+  return detail?.sourceImages?.map((image, index) => ({
     id: image.id,
     name: image.analysisRole || image.ossObjectKey?.split('/').pop() || '商品图',
     url: image.ossUrl,
+    isPrimary: index === 0,
     uploaded: true,
     raw: image
   })) || []
@@ -244,6 +345,28 @@ async function handleRemoveImage(imageId) {
   }
 }
 
+async function handleReorderImages(payload) {
+  if (!payload?.imageIds?.length || !draft.value?.asset?.id) {
+    return
+  }
+  const generation = requestGeneration.value
+  try {
+    const detail = await updateDraftImageOrder({
+      imageIds: payload.imageIds,
+      primaryImageId: payload.primaryImageId || payload.imageIds[0]
+    })
+    if (generation !== requestGeneration.value) {
+      return
+    }
+    draft.value = detail
+    uploadedImages.value = normalizeDraftImages(detail)
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '图片排序失败')
+    }
+  }
+}
+
 async function handleGenerate(form) {
   if (!uploadedImages.value.length) {
     ElMessage.warning('请先上传产品图')
@@ -263,8 +386,12 @@ async function handleGenerate(form) {
       productAssetId: draft.value?.asset?.id,
       assetType: form.assetType === '主图' ? 'main' : 'detail',
       targetPlatform: form.platform,
+      targetLanguage: form.language,
+      textEnabled: form.textEnabled,
+      selectedModel: form.model,
       aspectRatio: form.ratio,
       quality: form.quality,
+      imageCount: form.count,
       userRequirement: form.prompt
     })
     if (generation !== requestGeneration.value) {
@@ -273,7 +400,9 @@ async function handleGenerate(form) {
     currentTask.value = task
     selectedStep.value = task.currentNode || '分析中'
     await refreshCurrentTask(generation)
-    startPolling()
+    if (shouldPollProductImageTask(currentTask.value)) {
+      startPolling()
+    }
   } catch (error) {
     if (!handleAuthFailure(error, router)) {
       ElMessage.error(error.message || '创建商品图任务失败')
@@ -285,25 +414,115 @@ async function handleGenerate(form) {
   }
 }
 
-async function handleRewriteRequirement(form) {
+async function handleConfirmPlan(payload) {
+  if (!currentTask.value?.id || isConfirmingPlan.value) {
+    return
+  }
   const generation = requestGeneration.value
+  isConfirmingPlan.value = true
   try {
-    const result = await rewriteProductRequirement({
-      productAssetId: draft.value?.asset?.id,
-      assetType: form.assetType === '主图' ? 'main' : 'detail',
+    const task = await confirmProductImageTask(currentTask.value.id, payload || {})
+    if (generation !== requestGeneration.value) {
+      return
+    }
+    currentTask.value = task
+    selectedStep.value = task.currentNode || '生成中'
+    if (task.status === 'completed') {
+      await loadGeneratedAsset(task, generation)
+      showCompletionNotice()
+    } else if (shouldPollProductImageTask(task)) {
+      startPolling()
+    }
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '确认生成失败')
+    }
+  } finally {
+    if (generation === requestGeneration.value) {
+      isConfirmingPlan.value = false
+    }
+  }
+}
+
+async function handleReplan(payload) {
+  if (!currentTask.value?.id || isReplanning.value) {
+    return
+  }
+  const generation = requestGeneration.value
+  isReplanning.value = true
+  try {
+    const task = await replanProductImageTask(currentTask.value.id, payload || {})
+    if (generation !== requestGeneration.value) {
+      return
+    }
+    currentTask.value = task
+    selectedStep.value = task.currentNode || '确认规划'
+    if (shouldPollProductImageTask(task)) {
+      startPolling()
+    }
+  } catch (error) {
+    if (!handleAuthFailure(error, router)) {
+      ElMessage.error(error.message || '重新规划失败')
+    }
+  } finally {
+    if (generation === requestGeneration.value) {
+      isReplanning.value = false
+    }
+  }
+}
+
+async function handleRewriteRequirement(form) {
+  if (isRewriting.value) {
+    return
+  }
+  const rewriteRequirement = form.prompt?.trim() || ''
+  const rewriteRequirementLabel = `${form.assetType || '主图'}要求`
+  if (!rewriteRequirement) {
+    ElMessage.warning(`${rewriteRequirementLabel}不能为空`)
+    return
+  }
+
+  const generation = requestGeneration.value
+  rewriteDialogVisible.value = true
+  rewriteResult.value = null
+  rewriteStreamText.value = ''
+  rewriteError.value = ''
+  isRewriting.value = true
+  try {
+    const result = await rewriteProductRequirementStream({
       targetPlatform: form.platform,
-      userRequirement: form.prompt
+      userRequirement: rewriteRequirement
+    }, {
+      onDelta: (chunk) => appendRewriteDelta(chunk)
     })
     if (generation !== requestGeneration.value) {
       return
     }
     rewriteResult.value = result
-    rewriteDialogVisible.value = true
+    if (!rewriteStreamText.value && result?.optimizedRequirement) {
+      rewriteStreamText.value = result.optimizedRequirement
+    }
   } catch (error) {
+    if (generation !== requestGeneration.value) {
+      return
+    }
     if (!handleAuthFailure(error, router)) {
-      ElMessage.error(error.message || 'AI 帮写失败')
+      const errorMessage = error.message || 'AI 帮写失败'
+      rewriteError.value = errorMessage
+      ElMessage.error(errorMessage)
+    }
+  } finally {
+    if (generation === requestGeneration.value) {
+      isRewriting.value = false
     }
   }
+}
+
+function appendRewriteDelta(chunk) {
+  if (!chunk) {
+    return
+  }
+  rewriteStreamText.value = `${rewriteStreamText.value|| ''}${chunk}`
 }
 
 function applyRewriteResult() {
@@ -328,7 +547,12 @@ async function refreshCurrentTask(generation = requestGeneration.value) {
     await loadGeneratedAsset(task, generation)
     stopPolling()
     showCompletionNotice()
+  } else if (task.status === 'waiting_confirmation') {
+    selectedStep.value = '确认规划'
+    stopPolling()
   } else if (task.status === 'failed' || task.status === 'cancelled') {
+    stopPolling()
+  } else if (!shouldPollProductImageTask(task)) {
     stopPolling()
   }
 }
@@ -346,7 +570,7 @@ async function loadGeneratedAsset(task, generation = requestGeneration.value) {
 
 function startPolling() {
   stopPolling()
-  if (!currentTask.value?.id || currentTask.value.status !== 'processing') {
+  if (!shouldPollProductImageTask(currentTask.value)) {
     return
   }
   pollTimer = window.setInterval(() => {
@@ -357,6 +581,14 @@ function startPolling() {
       stopPolling()
     })
   }, 2500)
+}
+
+function shouldPollProductImageTask(task) {
+  // Planning confirmation is a user decision point, so polling detail rows there only creates noisy repeated reads.
+  return Boolean(task?.id)
+    && task?.status === 'processing'
+    && task?.status !== 'waiting_confirmation'
+    && task?.currentNode !== '确认规划'
 }
 
 function stopPolling() {
@@ -393,9 +625,14 @@ function clearPageSurface() {
   uploadedImages.value = []
   workspacePrompt.value = ''
   rewriteResult.value = null
+  rewriteStreamText.value = ''
+  rewriteError.value = ''
   rewriteDialogVisible.value = false
+  isRewriting.value = false
   isUploading.value = false
   isCreating.value = false
+  isConfirmingPlan.value = false
+  isReplanning.value = false
   selectedStep.value = '输入'
   workspaceResetKey.value += 1
 }
@@ -453,6 +690,32 @@ function jsonText(value) {
   }
 }
 
+function parseGenerationOutput(value) {
+  try {
+    const parsed = JSON.parse(value || '{}')
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function taskTextEnabled(task) {
+  try {
+    const params = JSON.parse(task?.modelParams || '{}')
+    return params?.textEnabled === true
+  } catch {
+    return false
+  }
+}
+
+function auditForImage(image, index) {
+  const output = generationOutput.value
+  const auditImages = Array.isArray(output.images) ? output.images : []
+  const matched = auditImages.find((item) => [item.imageId, item.finalImageId, item.id].includes(image.id))
+    || auditImages[index]
+  return matched ? { ...matched, auditSummary: output.auditSummary } : null
+}
+
 onMounted(() => {
   loadDraft().catch((error) => {
     if (!handleAuthFailure(error, router)) {
@@ -487,6 +750,20 @@ onBeforeUnmount(() => {
   background: var(--panel-muted);
 }
 
+.product-rewrite-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.product-rewrite-loading {
+  color: #858994;
+  animation: product-rewrite-spin 1s linear infinite;
+}
+
 .product-rewrite-preview {
   max-height: 360px;
   overflow-y: auto;
@@ -499,5 +776,22 @@ onBeforeUnmount(() => {
   line-height: 1.75;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.product-rewrite-preview.is-waiting {
+  color: var(--muted);
+}
+
+.product-rewrite-error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+@keyframes product-rewrite-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

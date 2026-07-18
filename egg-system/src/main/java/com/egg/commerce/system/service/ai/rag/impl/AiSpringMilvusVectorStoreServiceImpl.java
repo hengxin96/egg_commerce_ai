@@ -4,14 +4,18 @@ import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.service.ai.rag.AiDocumentChunk;
 import com.egg.commerce.system.service.ai.rag.AiVectorRecord;
 import com.egg.commerce.system.service.ai.rag.AiVectorStoreService;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -106,6 +110,32 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
     }
 
     /**
+     * 按授权文档 ID 白名单执行 Milvus 检索，权限过滤在向量库侧完成。
+     */
+    @Override
+    public List<AiVectorRecord> search(String query, int topK, double minScore, List<String> accessibleDocumentIds)
+    {
+        List<String> documentIds = normalizeDocumentIds(accessibleDocumentIds);
+        if (StringUtils.isBlank(query) || documentIds.isEmpty())
+        {
+            return List.of();
+        }
+
+        SearchRequest request = SearchRequest.builder()
+                .query(query)
+                .topK(Math.max(topK, 1))
+                .similarityThreshold(minScore)
+                .filterExpression(new FilterExpressionBuilder()
+                        .in(METADATA_DOCUMENT_ID, documentIds.stream().map(Object.class::cast).toList())
+                        .build())
+                .build();
+
+        return vectorStore.similaritySearch(request).stream()
+                .map(this::toVectorRecord)
+                .toList();
+    }
+
+    /**
      * 删除指定向量 ID，清理文档删除后的可检索内容。
      */
     @Override
@@ -143,6 +173,27 @@ public class AiSpringMilvusVectorStoreServiceImpl implements AiVectorStoreServic
         metadata.put(METADATA_CHUNK_ID, chunk.getChunkId());
         metadata.put(METADATA_CHUNK_INDEX, chunk.getChunkIndex());
         return metadata;
+    }
+
+    /**
+     * 清理授权文档 ID 列表中的空值和重复值，避免生成无效 Milvus filter。
+     */
+    private List<String> normalizeDocumentIds(List<String> documentIds)
+    {
+        if (documentIds == null)
+        {
+            return List.of();
+        }
+        Set<String> normalizedDocumentIds = new LinkedHashSet<>();
+        for (String documentId : documentIds)
+        {
+            String normalized = StringUtils.trimToEmpty(documentId);
+            if (StringUtils.isNotBlank(normalized))
+            {
+                normalizedDocumentIds.add(normalized);
+            }
+        }
+        return new ArrayList<>(normalizedDocumentIds);
     }
 
     /**

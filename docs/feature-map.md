@@ -94,7 +94,8 @@ Frontend paths:
 
 Navigation note:
 
-- First-version top navigation currently exposes full-category product images, style replication, intelligent chat, story generation, and task center.
+- First-version top navigation currently exposes full-category product images, product library, intelligent chat, story generation, and task center.
+- Style replication remains routed but is hidden from the top navigation until the workflow is ready to re-expose.
 - Apparel sets, product library, asset library, and more tools routes remain in the router but are hidden from the top navigation for later versions.
 ### Egg Admin Console
 
@@ -155,7 +156,7 @@ Frontend planned paths:
 Purpose:
 
 - Upload original product images.
-- Store AI-generated images and edited images in MinIO.
+- Store AI-generated images and edited images in object storage.
 - Save metadata such as width, height, MIME type, model, prompt, and object path.
 
 Backend planned paths:
@@ -210,6 +211,8 @@ Backend planned paths:
 - Gateway service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
 - Gateway configuration bridge: `egg-framework/src/main/java/com/egg/commerce/framework/config/AiModelGatewayConfig.java`
 - DashScope embedding adapter: `egg-framework/src/main/java/com/egg/commerce/framework/ai/model/DashScopeEmbeddingModel.java`
+- DashScope vision understanding: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model/impl/AiDashScopeVisionUnderstandingServiceImpl.java`
+- DashScope Wan image generation: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model/impl/AiDashScopeImageGenerationServiceImpl.java`
 - Provider configs: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/model`
 - Admin controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/model`
 
@@ -264,6 +267,8 @@ Backend planned paths:
 - Image generation controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/image`
 - Image generation service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/image`
 - Prompt templates: database-backed, configured from Egg admin
+- Prompt template reference document: `docs/prompts/AI生图提示词方案v3_全品类商品图质量升级.md`
+- Latest operator copy document: `C:\Users\14350\Desktop\AI生图提示词\AI生图提示词方案v7_对标式规划节点与全品类商品图提示词升级.md`
 
 Frontend planned paths:
 
@@ -344,9 +349,13 @@ Notes:
 Purpose:
 
 - Upload product images immediately to backend OSS-backed storage.
-- Analyze product features, produce a visible planning node, and generate real ecommerce product images through DashScope/Tongyi Wanxiang.
+- Analyze product features with a vision model, produce a visible confirmable planning node, and generate real ecommerce product images through DashScope/Tongyi Wanxiang.
 - Persist successful generated assets in the user-owned product library and allow reuse, rename, download, and delete.
-- Show product-image tasks in the task center with node progress, failed-node retry, cancellation, and generated-image status.
+- Preserve model base images as `generated_base`, expose only final composed images as `generated`, and show audit status for each final image.
+- Show product-image tasks in the task center with node progress, failed-node retry, cancellation, generated-image status, and audit risks.
+- Let task-center product-image retries return to a confirmable planning step before generation continues.
+- Show product detail pages with generated images first, then read-only product information and the latest successful overall design spec.
+- Preview generated images from product detail and task-center result dialogs before download.
 
 Frontend paths:
 
@@ -356,12 +365,19 @@ Frontend paths:
 - Task center: `egg-user-web/src/pages/TasksPage.vue`
 - API wrapper: `egg-user-web/src/api/productImage.js`
 - Shared generator workspace: `egg-user-web/src/components/GeneratorWorkspace.vue`
+- Confirmable plan editor: `egg-user-web/src/components/product/ProductImagePlanEditor.vue`
+- Audit status badge: `egg-user-web/src/components/product/ProductImageAuditBadge.vue`
+- Selectable final-image gallery: `egg-user-web/src/components/product/SelectableImageGallery.vue`
 
 Backend paths:
 
 - Controller: `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/product`
 - Product services: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product`
-- Image generation gateway: `egg-system/src/main/java/com/egg/commerce/system/service/ai/image`
+- Product task orchestration: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductImageTaskServiceImpl.java`
+- Product asset workflow: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl/AiProductAssetServiceImpl.java`
+- Product image composition: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/AiProductImageCompositionService.java`
+- Product image audit: `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/AiProductImageAuditService.java`
+- Image and vision model gateway: `egg-system/src/main/java/com/egg/commerce/system/service/ai/model`
 - OSS storage service: `egg-system/src/main/java/com/egg/commerce/system/service/ai/storage`
 - Domain: `egg-system/src/main/java/com/egg/commerce/system/domain/ai/product`
 - Mapper: `egg-system/src/main/java/com/egg/commerce/system/mapper/ai/product`
@@ -377,6 +393,17 @@ Database:
 Notes:
 
 - Product-library records remain invisible until generation succeeds.
+- Product image tasks now stop at `status=waiting_confirmation` after analysis/planning; confirmation starts image generation.
+- Task-center product-image detail reuses `ProductImagePlanEditor` for planning confirmation, replan, and confirm-generate actions.
+- Task center silently polls for list/detail updates so task status and retry-planning prompts appear without manual refresh.
+- `SelectableImageGallery` owns generated-image selection, audit badges, and preview viewer controls for product detail and task-center dialogs.
+- Newly generated assets whose names still use the `未命名商品-` prefix are renamed from visual analysis `productNameGuess`; user-renamed assets are preserved.
+- `generation_output` stores final image IDs, base image IDs, composition metadata, `ruleAudit`, `visionAudit`, and `auditSummary`.
+- The generator workspace passes target language, text-enabled mode, selected model, aspect ratio, clarity, and image count through to task `modelParams` and prompt variables.
+- `图片带文字=否` forces `textOverlay.enabled=false`, skips Java2D text composition, and returns the generated base image content as the final image.
+- `图片带文字=是` lets planning provide style-adaptive `typography` values that Java2D uses for text position, color, shadow, stroke, and opacity.
+- Runtime prompt templates now include `商品图视觉分析提示词` in `AI视觉分析` and `商品图视觉审核提示词` in `AI视觉审核`.
+- DashScope image generation maps 2K clarity for supported ratios such as `3:4`, `1:1`, and `4:5`, with a standard-size fallback when custom 2K submission fails.
 - Failed and cancelled task history is retained; cancelled product assets remain invisible and cannot be retried.
 - Stale draft uploads older than 12 hours and product-image OSS objects missing database rows are cleaned by scheduled maintenance.
 
@@ -459,7 +486,7 @@ When debugging a feature, start here:
 6. Check domain objects and mapper SQL in `egg-system` and `egg-system/src/main/resources/mapper`.
 7. Check database migration or seed scripts in `sql`.
 8. Check task progress and Redis behavior for async AI tasks.
-9. Check MinIO object paths and asset metadata for image/file issues.
+9. Check object storage paths and asset metadata for image/file issues.
 10. Check model gateway logs, prompt version, task logs, and RAG retrieval logs for AI issues.
 
 ## Maintenance Rules

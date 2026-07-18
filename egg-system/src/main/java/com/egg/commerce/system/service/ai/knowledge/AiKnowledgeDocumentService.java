@@ -2,6 +2,7 @@ package com.egg.commerce.system.service.ai.knowledge;
 
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDownloadUrl;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,6 +27,12 @@ public interface AiKnowledgeDocumentService
 
     /** 返回所选文档的 OSS 下载地址，不向前端暴露完整元数据记录。 */
     List<AiKnowledgeDownloadUrl> selectDownloadUrls(String[] ids);
+
+    /** 批量更新知识库文档可访问角色；admin 会被强制保留。 */
+    int updateAccessRoles(String[] ids, List<String> accessRoles);
+
+    /** 根据当前用户角色查询可用于 RAG 检索的已完成文档 ID。 */
+    List<String> selectAccessibleCompletedDocumentIds(Collection<String> roleKeys);
 
     /** 批量删除文档，并清理对应对象存储文件和向量库记录。 */
     int deleteAiKnowledgeDocumentByIds(String[] ids);

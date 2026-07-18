@@ -13,4 +13,7 @@ public interface AiChatRetrievalSourceMapper
 
     /** 保存一条回答引用的 RAG 来源记录。 */
     int insertAiChatRetrievalSource(AiChatRetrievalSource source);
+
+    /** 按会话 ID 物理删除该会话全部回答来源。 */
+    int deleteAiChatRetrievalSourcesBySessionId(String sessionId);
 }

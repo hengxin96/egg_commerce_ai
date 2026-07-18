@@ -36,27 +36,6 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: ${EGG_MINIO_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/minio/minio:latest}
-    container_name: egg-minio
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      TZ: Asia/Shanghai
-      MINIO_ROOT_USER: ${EGG_MINIO_ROOT_USER:-eggminio}
-      MINIO_ROOT_PASSWORD: ${EGG_MINIO_ROOT_PASSWORD:-egg_minio_dev_password}
-    ports:
-      - "${EGG_MINIO_API_PORT:-9000}:9000"
-      - "${EGG_MINIO_CONSOLE_PORT:-9001}:9001"
-    volumes:
-      - egg-minio-data:/data
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
 volumes:
   egg-postgres-data:
   egg-redis-data:
-  egg-minio-data:

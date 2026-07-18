@@ -16,17 +16,20 @@ test('product asset list uses real product asset APIs and actions', () => {
   assert.match(page, /OSS 文件都会被删除/)
 })
 
-test('product detail uses asset detail APIs without analysis planning content', () => {
+test('product detail uses asset detail APIs and renders read-only planning design spec', () => {
   const page = readSource('./ProductDetailPage.vue')
 
   assert.match(page, /getProductAsset/)
   assert.match(page, /sourceImages/)
   assert.match(page, /generatedImages/)
   assert.match(page, /reuseProductAsset/)
-  assert.match(page, /downloadProductAsset/)
   assert.match(page, /deleteProductAsset/)
+  assert.match(page, /planningOutput/)
+  assert.match(page, /overallDesignSpec/)
+  assert.match(page, /designSpecItems/)
+  assert.match(page, /product-design-spec/)
+  assert.match(page, /product-detail-layout\s*\{[\s\S]*grid-template-columns:\s*1fr;/)
   assert.doesNotMatch(page, /analysisOutput/)
-  assert.doesNotMatch(page, /planningOutput/)
 })
 
 test('navigation exposes product library but not asset library', () => {

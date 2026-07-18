@@ -28,7 +28,7 @@
 ### Documentation
 
 - Modify: `docs/project-constitution.md`  
-  Update storage/vector-store principles from MinIO/pgvector to Ali OSS/Milvus/PostgreSQL metadata.
+  Update storage/vector-store principles from object storage/pgvector to Ali OSS/Milvus/PostgreSQL metadata.
 - Modify: `docs/change-log.md`  
   Add a short plain-language entry for this implementation.
 - Modify: `docs/feature-map.md`  
@@ -45,9 +45,9 @@
 - Modify: `egg-admin/pom.xml`  
   Add web-facing dependencies only if controllers need them directly.
 - Modify: `egg-admin/src/main/resources/application.yml`  
-  Replace commented MinIO/pgvector sample with Ali OSS + Milvus sample.
+  Replace commented object-storage/pgvector sample with Ali OSS + Milvus sample.
 - Modify: `egg-framework/src/main/java/com/egg/commerce/framework/config/properties/AiCommerceProperties.java`  
-  Replace MinIO nested config with Ali OSS config and add Milvus config.
+  Replace object-storage nested config with Ali OSS config and add Milvus config.
 
 ### Backend Infrastructure
 
@@ -220,7 +220,7 @@ public class AiVectorRecord
 
 - [ ] **Step 1: Update constitution storage language**
 
-In `docs/project-constitution.md`, replace references that require MinIO/pgvector as the default first-phase architecture:
+In `docs/project-constitution.md`, replace references that require object storage/pgvector as the default first-phase architecture:
 
 ```markdown
 - PostgreSQL for business data
@@ -230,7 +230,7 @@ In `docs/project-constitution.md`, replace references that require MinIO/pgvecto
 - RAG using Milvus as the approved vector store, with PostgreSQL retaining business metadata and retrieval trace records
 ```
 
-Also update image-output requirements to say generated images must be persisted to OSS instead of MinIO:
+Also update image-output requirements to say generated images must be persisted to OSS instead of temporary model URLs:
 
 ```markdown
 - Store generated images in Alibaba Cloud OSS instead of relying on temporary model URLs
@@ -324,10 +324,10 @@ Main files:
 Run:
 
 ```powershell
-Select-String -Path docs\project-constitution.md,docs\feature-map.md,.env.example -Pattern 'MinIO|pgvector|minio|PGVECTOR'
+Select-String -Path docs\project-constitution.md,docs\feature-map.md,.env.example -Pattern 'object storage|pgvector|PGVECTOR'
 ```
 
-Expected: any remaining MinIO/pgvector references are historical notes or explicitly marked as replaced, not active first-phase defaults.
+Expected: any remaining object-storage/pgvector references are historical notes or explicitly marked as replaced, not active first-phase defaults.
 
 - [ ] **Step 6: Commit**
 
@@ -403,7 +403,7 @@ In `egg-system/pom.xml`, add:
 
 - [ ] **Step 3: Update typed properties**
 
-In `AiCommerceProperties`, replace `Storage.Minio` with `Storage.AliOss`:
+In `AiCommerceProperties`, replace `Storage.ObjectStorage` with `Storage.AliOss`:
 
 ```java
 public static class Storage

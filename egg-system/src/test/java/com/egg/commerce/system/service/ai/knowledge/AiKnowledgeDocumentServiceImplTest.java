@@ -56,6 +56,7 @@ class AiKnowledgeDocumentServiceImplTest
         assertEquals("processing", document.getStatus());
         assertEquals("rules.txt", document.getFileName());
         assertEquals("knowledge-bucket", document.getOssBucket());
+        assertEquals("admin", document.getAccessRoles());
         assertEquals(document.getId(), vectorization.startedDocumentId);
         assertEquals("rules.txt", vectorization.startedFileName);
         assertTrue(mapper.documents.containsKey(document.getId()));
@@ -81,7 +82,78 @@ class AiKnowledgeDocumentServiceImplTest
 
         assertEquals(2, documents.size());
         assertEquals(2, mapper.documents.size());
+        assertEquals(List.of("admin", "admin"), documents.stream().map(AiKnowledgeDocument::getAccessRoles).toList());
         assertEquals(List.of("rules.pdf", "guide.md"), vectorization.startedFileNames);
+    }
+
+    /**
+     * 验证批量修改知识库访问角色时会标准化角色并始终保留 admin。
+     */
+    @Test
+    void updateAccessRolesNormalizesRolesAndAlwaysKeepsAdmin()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+        AiKnowledgeDocument first = new AiKnowledgeDocument();
+        first.setId("doc-1");
+        first.setAccessRoles("admin");
+        AiKnowledgeDocument second = new AiKnowledgeDocument();
+        second.setId("doc-2");
+        second.setAccessRoles("admin");
+        mapper.documents.put(first.getId(), first);
+        mapper.documents.put(second.getId(), second);
+
+        int updated = service.updateAccessRoles(new String[] { "doc-1", "doc-2" }, List.of(" common ", "admin"));
+
+        assertEquals(2, updated);
+        assertEquals("admin,common", mapper.documents.get("doc-1").getAccessRoles());
+        assertEquals("admin,common", mapper.documents.get("doc-2").getAccessRoles());
+    }
+
+    /**
+     * 验证普通角色只能检索已完成且授权给 common 的知识库文档。
+     */
+    @Test
+    void selectAccessibleCompletedDocumentIdsFiltersByCommonRoleAndCompletedStatus()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+        mapper.documents.put("admin-doc", document("admin-doc", "completed", "admin"));
+        mapper.documents.put("common-doc", document("common-doc", "completed", "admin,common"));
+        mapper.documents.put("processing-common-doc", document("processing-common-doc", "processing", "admin,common"));
+
+        List<String> accessibleIds = service.selectAccessibleCompletedDocumentIds(List.of("common"));
+
+        assertEquals(List.of("common-doc"), accessibleIds);
+    }
+
+    /**
+     * 验证 admin 角色可以检索所有已完成知识库文档。
+     */
+    @Test
+    void selectAccessibleCompletedDocumentIdsReturnsAllCompletedDocumentsForAdminRole()
+    {
+        FakeKnowledgeMapper mapper = new FakeKnowledgeMapper();
+        FakeStorage storage = new FakeStorage();
+        FakeVectorStore vectorStore = new FakeVectorStore();
+        FakeVectorization vectorization = new FakeVectorization();
+        AiKnowledgeDocumentServiceImpl service = new AiKnowledgeDocumentServiceImpl(mapper, storage, vectorStore,
+                vectorization);
+        mapper.documents.put("admin-doc", document("admin-doc", "completed", "admin"));
+        mapper.documents.put("common-doc", document("common-doc", "completed", "admin,common"));
+        mapper.documents.put("failed-doc", document("failed-doc", "failed", "admin,common"));
+
+        List<String> accessibleIds = service.selectAccessibleCompletedDocumentIds(List.of("admin"));
+
+        assertEquals(List.of("admin-doc", "common-doc"), accessibleIds);
     }
 
     /**
@@ -285,6 +357,50 @@ class AiKnowledgeDocumentServiceImplTest
         }
 
         /**
+         * 批量更新内存文档的访问角色。
+         */
+        @Override
+        public int updateAiKnowledgeDocumentAccessRoles(String[] ids, String accessRoles)
+        {
+            int count = 0;
+            for (String id : ids)
+            {
+                AiKnowledgeDocument document = documents.get(id);
+                if (document != null)
+                {
+                    document.setAccessRoles(accessRoles);
+                    count++;
+                }
+            }
+            return count;
+        }
+
+        /**
+         * 返回所有已完成文档 ID。
+         */
+        @Override
+        public List<String> selectCompletedDocumentIds()
+        {
+            return documents.values().stream()
+                    .filter(document -> "completed".equals(document.getStatus()))
+                    .map(AiKnowledgeDocument::getId)
+                    .toList();
+        }
+
+        /**
+         * 按访问角色返回已完成文档 ID。
+         */
+        @Override
+        public List<String> selectCompletedDocumentIdsByAccessRoles(List<String> roleKeys)
+        {
+            return documents.values().stream()
+                    .filter(document -> "completed".equals(document.getStatus()))
+                    .filter(document -> hasAnyRole(document.getAccessRoles(), roleKeys))
+                    .map(AiKnowledgeDocument::getId)
+                    .toList();
+        }
+
+        /**
          * 从内存 Map 删除指定文档并返回删除数量。
          */
         @Override
@@ -299,6 +415,25 @@ class AiKnowledgeDocumentServiceImplTest
                 }
             }
             return count;
+        }
+
+        private boolean hasAnyRole(String accessRoles, List<String> roleKeys)
+        {
+            if (accessRoles == null || roleKeys == null)
+            {
+                return false;
+            }
+            for (String accessRole : accessRoles.split(","))
+            {
+                for (String roleKey : roleKeys)
+                {
+                    if (accessRole.trim().equals(roleKey))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
     }
 
@@ -365,9 +500,16 @@ class AiKnowledgeDocumentServiceImplTest
         {
             throw new UnsupportedOperationException("知识库测试不覆盖 OSS 对象下载");
         }
+
         /**
          * 记录服务层请求删除的对象键。
          */
+        @Override
+        public String presignObjectUrl(String objectKey, long expireSeconds)
+        {
+            throw new UnsupportedOperationException("knowledge tests do not presign product images");
+        }
+
         @Override
         public void deleteObject(String objectKey)
         {
@@ -436,6 +578,15 @@ class AiKnowledgeDocumentServiceImplTest
             startedFileName = document.getFileName();
             startedFileNames.add(startedFileName);
         }
+    }
+
+    private static AiKnowledgeDocument document(String id, String status, String accessRoles)
+    {
+        AiKnowledgeDocument document = new AiKnowledgeDocument();
+        document.setId(id);
+        document.setStatus(status);
+        document.setAccessRoles(accessRoles);
+        return document;
     }
 
     private static class SizedMultipartFile implements MultipartFile

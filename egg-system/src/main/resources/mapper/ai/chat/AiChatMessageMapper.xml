@@ -58,4 +58,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         )
     </insert>
 
+    <!-- 物理删除指定会话内全部聊天消息。 -->
+    <delete id="deleteAiChatMessagesBySessionId" parameterType="String">
+        delete from ai_chat_messages
+        where session_id = cast(#{sessionId} as uuid)
+    </delete>
+
 </mapper>

@@ -1,7 +1,6 @@
 ﻿export const primaryNavItems = [
   { label: '全品类商品图', path: '/generate/product-images', icon: 'Box' },
   { label: '商品库', path: '/products', icon: 'Goods' },
-  { label: '风格复刻', path: '/generate/style-clone', icon: 'Picture' },
   { label: '智能聊天', path: '/chat', icon: 'ChatDotRound' },
   { label: '剧情生成', path: '/generate/story', icon: 'DocumentAdd' },
   { label: '任务中心', path: '/tasks', icon: 'Clock' }

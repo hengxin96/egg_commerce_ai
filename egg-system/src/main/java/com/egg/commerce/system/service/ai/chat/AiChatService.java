@@ -4,6 +4,7 @@ import com.egg.commerce.system.domain.ai.chat.AiChatMessage;
 import com.egg.commerce.system.domain.ai.chat.AiChatResponse;
 import com.egg.commerce.system.domain.ai.chat.AiChatSession;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * 智能聊天业务服务，负责会话归属校验、消息保存和 RAG 回答流程。
@@ -21,4 +22,10 @@ public interface AiChatService
 
     /** 保存用户问题、执行 RAG 检索并返回助手回答。 */
     AiChatResponse sendMessage(String sessionId, Long userId, String content);
+
+    /** 保存用户问题、执行 RAG 检索，以增量方式输出助手回答并返回完整回答结果。 */
+    AiChatResponse streamMessage(String sessionId, Long userId, String content, Consumer<String> onDelta);
+
+    /** 物理删除用户自己的聊天会话及其消息、来源记录。 */
+    void deleteSession(String sessionId, Long userId);
 }

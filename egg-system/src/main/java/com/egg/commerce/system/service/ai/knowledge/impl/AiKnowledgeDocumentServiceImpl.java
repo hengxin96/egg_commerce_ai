@@ -17,10 +17,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +42,14 @@ import org.springframework.web.multipart.MultipartFile;
 public class AiKnowledgeDocumentServiceImpl implements AiKnowledgeDocumentService
 {
     private static final String STATUS_PROCESSING = "processing";
+
+    private static final String ROLE_ADMIN = "admin";
+
+    private static final String ROLE_COMMON = "common";
+
+    private static final String DEFAULT_ACCESS_ROLES = ROLE_ADMIN;
+
+    private static final List<String> SUPPORTED_ACCESS_ROLES = List.of(ROLE_ADMIN, ROLE_COMMON);
 
     /** 后台上传先完成文件校验，避免不支持的文件进入 RAG 流程。 */
     private static final long MAX_KNOWLEDGE_FILE_SIZE = 100L * 1024L * 1024L;
@@ -160,6 +171,37 @@ public class AiKnowledgeDocumentServiceImpl implements AiKnowledgeDocumentServic
     }
 
     /**
+     * 批量设置知识库文档可访问角色，始终保留 admin，避免管理员误锁文档。
+     */
+    @Override
+    public int updateAccessRoles(String[] ids, List<String> accessRoles)
+    {
+        if (ids == null || ids.length == 0)
+        {
+            throw new ServiceException("请选择要设置权限的知识库文档");
+        }
+        return knowledgeDocumentMapper.updateAiKnowledgeDocumentAccessRoles(ids, normalizeAccessRoles(accessRoles));
+    }
+
+    /**
+     * 根据当前用户角色返回允许进入向量检索的已完成文档 ID。
+     */
+    @Override
+    public List<String> selectAccessibleCompletedDocumentIds(Collection<String> roleKeys)
+    {
+        Set<String> normalizedRoleKeys = normalizeRoleKeys(roleKeys);
+        if (normalizedRoleKeys.contains(ROLE_ADMIN))
+        {
+            return knowledgeDocumentMapper.selectCompletedDocumentIds();
+        }
+        if (normalizedRoleKeys.isEmpty())
+        {
+            return Collections.emptyList();
+        }
+        return knowledgeDocumentMapper.selectCompletedDocumentIdsByAccessRoles(new ArrayList<>(normalizedRoleKeys));
+    }
+
+    /**
      * 删除知识库文档前先清理向量库和 OSS，避免残留可检索内容或源文件。
      */
     @Override
@@ -220,6 +262,7 @@ public class AiKnowledgeDocumentServiceImpl implements AiKnowledgeDocumentServic
         document.setOssUrl(storedObject.getUrl());
         document.setVectorStore(StringUtils.defaultIfBlank(vectorStoreName, "local"));
         document.setVectorIds("[]");
+        document.setAccessRoles(DEFAULT_ACCESS_ROLES);
         document.setChunkCount(0);
         document.setStatus(STATUS_PROCESSING);
         document.setCreatedBy(createdBy);
@@ -271,6 +314,52 @@ public class AiKnowledgeDocumentServiceImpl implements AiKnowledgeDocumentServic
     {
         String extension = StringUtils.substringAfterLast(StringUtils.defaultString(fileName), ".");
         return StringUtils.isBlank(extension) ? null : extension.toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 标准化后台选择的访问角色，当前只允许 admin/common，并强制保留 admin。
+     */
+    private String normalizeAccessRoles(List<String> accessRoles)
+    {
+        Set<String> normalizedRoles = normalizeRoleKeys(accessRoles);
+        normalizedRoles.add(ROLE_ADMIN);
+        for (String role : normalizedRoles)
+        {
+            if (!SUPPORTED_ACCESS_ROLES.contains(role))
+            {
+                throw new ServiceException("不支持的知识库访问角色");
+            }
+        }
+        List<String> orderedRoles = new ArrayList<>();
+        for (String supportedRole : SUPPORTED_ACCESS_ROLES)
+        {
+            if (normalizedRoles.contains(supportedRole))
+            {
+                orderedRoles.add(supportedRole);
+            }
+        }
+        return String.join(",", orderedRoles);
+    }
+
+    /**
+     * 清理角色 key 的空白和大小写差异，便于权限判断与持久化保持一致。
+     */
+    private Set<String> normalizeRoleKeys(Collection<String> roleKeys)
+    {
+        Set<String> normalizedRoleKeys = new LinkedHashSet<>();
+        if (roleKeys == null)
+        {
+            return normalizedRoleKeys;
+        }
+        for (String roleKey : roleKeys)
+        {
+            String normalized = StringUtils.trimToEmpty(roleKey).toLowerCase(Locale.ROOT);
+            if (StringUtils.isNotBlank(normalized))
+            {
+                normalizedRoleKeys.add(normalized);
+            }
+        }
+        return normalizedRoleKeys;
     }
 
     /**

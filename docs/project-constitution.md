@@ -25,7 +25,7 @@ The first version must generate real images. A feature that only produces image 
 Every image generation workflow must:
 
 - Preserve product identity, including color, structure, logo, quantity, and key physical details
-- Store generated images in MinIO instead of relying on temporary model URLs
+- Store generated images in object storage instead of relying on temporary model URLs
 - Record model name, prompt version, generation parameters, task ID, user ID, product ID, and audit status
 - Support preview, regeneration, download, and asset-library reuse
 - Provide clear failure reasons and retry behavior
@@ -115,7 +115,7 @@ The first usable version must include:
 
 - Login and authenticated front-stage access
 - Product library and product image upload
-- MinIO file storage and PostgreSQL metadata persistence
+- Object storage file persistence and PostgreSQL metadata persistence
 - Redis-backed async task progress for AI generation tasks
 - Model gateway for text, vision, image generation, embedding, and Coze or equivalent agent calls
 - Intelligent chat with RAG retrieval
@@ -153,7 +153,7 @@ The preferred first-phase architecture is:
 - Front-stage user workspace built separately from the admin experience
 - PostgreSQL for business data
 - Redis for login/session support, task queue/progress, rate limiting, duplicate-submit prevention, and short-lived chat context
-- MinIO for original images, generated images, edited images, and export files
+- Object storage for original images, generated images, edited images, and export files
 - Model gateway for all model and agent calls
 - RAG using pgvector or another approved vector store
 
@@ -178,7 +178,7 @@ If the answer conflicts with any core principle, the requirement must be revised
 
 The preferred first-version delivery order is:
 
-1. Foundation: login, product library, upload, MinIO, Redis task center, backend configuration
+1. Foundation: login, product library, upload, object storage, Redis task center, backend configuration
 2. Intelligent chat and RAG: chat sessions, Coze or agent integration, knowledge retrieval, source logging
 3. Visual generation loop: product analysis, product image generation, detail image generation, style replication, batch refinement
 4. Asset workflow: asset library, versioning, audit, download, export, failure handling
@@ -195,7 +195,7 @@ No first-phase feature is complete unless:
 - It stores generated assets or answers where appropriate
 - It handles failure with a visible reason
 - It respects resource ownership and file access permissions
-- It does not expose API keys, MinIO credentials, model credentials, or private files to the frontend
+- It does not expose API keys, object storage credentials, model credentials, or private files to the frontend
 - It includes simple comments for non-obvious business logic, AI workflow logic, storage logic, and integration logic
 
 For image generation features, the output must also be previewable, downloadable, and traceable to product, model, prompt, and parameters.
@@ -220,4 +220,4 @@ Versioning follows semantic intent:
 
 All future planning, code review, UI design, and AI-agent work must verify constitution compliance before treating a task as ready.
 
-**Version**: 1.2.1 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-09
+**Version**: 1.2.2 | **Ratified**: 2026-06-27 | **Last Amended**: 2026-07-18

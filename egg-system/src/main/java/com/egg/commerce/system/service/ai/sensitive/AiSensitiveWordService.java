@@ -16,6 +16,9 @@ public interface AiSensitiveWordService
     /** 按条件查询敏感词列表。 */
     List<AiSensitiveWord> selectAiSensitiveWordList(AiSensitiveWord query);
 
+    /** 判断文本是否命中已启用敏感词；只返回是否命中，不暴露具体词条。 */
+    boolean containsEnabledSensitiveWord(String content);
+
     /** 新增敏感词，并记录创建管理员。 */
     int insertAiSensitiveWord(AiSensitiveWord word, Long createdBy);
 

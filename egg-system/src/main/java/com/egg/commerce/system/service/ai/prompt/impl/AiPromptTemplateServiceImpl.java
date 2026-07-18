@@ -62,6 +62,19 @@ public class AiPromptTemplateServiceImpl implements IAiPromptTemplateService
     }
 
     /**
+     * 按分类读取最新发布模板，供 RAG 聊天等运行时能力使用。
+     */
+    @Override
+    public AiPromptTemplate selectPublishedTemplateByCategory(String category)
+    {
+        if (StringUtils.isBlank(category))
+        {
+            return null;
+        }
+        return promptTemplateMapper.selectPublishedTemplateByCategory(category);
+    }
+
+    /**
      * 新增提示词模板前补齐状态、版本和变量默认值。
      */
     @Override

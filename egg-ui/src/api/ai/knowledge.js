@@ -47,3 +47,11 @@ export function retryKnowledge(id) {
     method: 'post'
   })
 }
+
+export function updateKnowledgeAccessRoles(data) {
+  return request({
+    url: '/ai/knowledge/access-roles',
+    method: 'put',
+    data
+  })
+}

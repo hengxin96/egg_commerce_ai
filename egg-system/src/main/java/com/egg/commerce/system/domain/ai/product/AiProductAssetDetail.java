@@ -10,6 +10,8 @@ public class AiProductAssetDetail implements Serializable
     private AiProductAsset asset;
     private List<AiProductAssetImage> sourceImages;
     private List<AiProductAssetImage> generatedImages;
+    private String auditOutput;
+    private String planningOutput;
 
     public AiProductAsset getAsset() { return asset; }
     public void setAsset(AiProductAsset asset) { this.asset = asset; }
@@ -17,4 +19,8 @@ public class AiProductAssetDetail implements Serializable
     public void setSourceImages(List<AiProductAssetImage> sourceImages) { this.sourceImages = sourceImages; }
     public List<AiProductAssetImage> getGeneratedImages() { return generatedImages; }
     public void setGeneratedImages(List<AiProductAssetImage> generatedImages) { this.generatedImages = generatedImages; }
+    public String getAuditOutput() { return auditOutput; }
+    public void setAuditOutput(String auditOutput) { this.auditOutput = auditOutput; }
+    public String getPlanningOutput() { return planningOutput; }
+    public void setPlanningOutput(String planningOutput) { this.planningOutput = planningOutput; }
 }

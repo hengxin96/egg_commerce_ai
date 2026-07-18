@@ -13,4 +13,7 @@ public interface AiChatMessageMapper
 
     /** 保存一条用户或助手聊天消息。 */
     int insertAiChatMessage(AiChatMessage message);
+
+    /** 按会话 ID 物理删除会话内全部消息。 */
+    int deleteAiChatMessagesBySessionId(String sessionId);
 }

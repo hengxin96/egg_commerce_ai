@@ -12,18 +12,25 @@ import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDetail;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetImage;
 import com.egg.commerce.system.domain.ai.product.AiProductDraftDetail;
+import com.egg.commerce.system.domain.ai.product.AiProductImageOrderRequest;
+import com.egg.commerce.system.domain.ai.product.AiProductImageTask;
 import com.egg.commerce.system.mapper.ai.product.AiProductAssetImageMapper;
 import com.egg.commerce.system.mapper.ai.product.AiProductAssetMapper;
+import com.egg.commerce.system.mapper.ai.product.AiProductImageTaskMapper;
 import com.egg.commerce.system.service.ai.product.impl.AiProductAssetServiceImpl;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
 import com.egg.commerce.system.service.ai.storage.AiStoredObjectSummary;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
@@ -124,6 +131,48 @@ class AiProductAssetServiceImplTest
     }
 
     @Test
+    void assetDetailReturnsLatestTaskAuditOutput()
+    {
+        Fixture fixture = new Fixture();
+        AiProductAsset asset = fixture.asset("asset", 1L, "completed", true);
+        asset.setLastTaskId("task-1");
+        fixture.assets.insertAiProductAsset(asset);
+        AiProductImageTask task = new AiProductImageTask();
+        task.setId("task-1");
+        task.setProductAssetId("asset");
+        task.setUserId(1L);
+        task.setStatus("completed");
+        task.setGenerationOutput("{\"auditSummary\":{\"status\":\"warning\"}}");
+        fixture.tasks.task = task;
+
+        AiProductAssetDetail detail = fixture.service.selectAssetDetail(1L, "asset");
+
+        assertTrue(detail.getAuditOutput().contains("\"auditSummary\""));
+    }
+
+    @Test
+    void assetDetailReturnsLatestCompletedTaskPlanningOutput()
+    {
+        Fixture fixture = new Fixture();
+        AiProductAsset asset = fixture.asset("asset", 1L, "completed", true);
+        asset.setLastTaskId("task-1");
+        fixture.assets.insertAiProductAsset(asset);
+        AiProductImageTask task = new AiProductImageTask();
+        task.setId("task-1");
+        task.setProductAssetId("asset");
+        task.setUserId(1L);
+        task.setStatus("completed");
+        task.setGenerationOutput("{\"auditSummary\":{\"status\":\"pass\"}}");
+        task.setPlanningOutput("{\"overallDesignSpec\":{\"lighting\":\"soft window light\"}}");
+        fixture.tasks.task = task;
+
+        AiProductAssetDetail detail = fixture.service.selectAssetDetail(1L, "asset");
+
+        assertTrue(detail.getPlanningOutput().contains("\"overallDesignSpec\""));
+        assertTrue(detail.getPlanningOutput().contains("soft window light"));
+    }
+
+    @Test
     void renameRejectsBlankNamesAndOtherUsersAssets()
     {
         Fixture fixture = new Fixture();
@@ -147,6 +196,40 @@ class AiProductAssetServiceImplTest
     }
 
     @Test
+    void updateDraftImageOrderMovesPrimarySourceImageToFirstPosition()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("draft", 1L, "draft_uploaded", false));
+        fixture.images.insertAiProductAssetImage(fixture.image("source-1", "draft", 1L, "source", "source/1.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("source-2", "draft", 1L, "source", "source/2.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("source-3", "draft", 1L, "source", "source/3.png"));
+        AiProductImageOrderRequest request = new AiProductImageOrderRequest();
+        request.setImageIds(List.of("source-1", "source-2", "source-3"));
+        request.setPrimaryImageId("source-2");
+
+        AiProductDraftDetail detail = fixture.service.updateDraftImageOrder(1L, request);
+
+        assertEquals(List.of("source-2", "source-1", "source-3"),
+                detail.getSourceImages().stream().map(AiProductAssetImage::getId).collect(Collectors.toList()));
+        assertEquals(List.of(0, 1, 2),
+                detail.getSourceImages().stream().map(AiProductAssetImage::getSortOrder).collect(Collectors.toList()));
+    }
+
+    @Test
+    void updateDraftImageOrderRejectsImagesOutsideCurrentDraft()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("draft", 1L, "draft_uploaded", false));
+        fixture.images.insertAiProductAssetImage(fixture.image("source-1", "draft", 1L, "source", "source/1.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("other-user", "draft", 2L, "source", "source/other.png"));
+        AiProductImageOrderRequest request = new AiProductImageOrderRequest();
+        request.setImageIds(List.of("source-1", "other-user"));
+        request.setPrimaryImageId("other-user");
+
+        assertThrows(ServiceException.class, () -> fixture.service.updateDraftImageOrder(1L, request));
+    }
+
+    @Test
     void downloadGeneratedImageReturnsFirstOwnedGeneratedImage()
     {
         Fixture fixture = new Fixture();
@@ -163,12 +246,75 @@ class AiProductAssetServiceImplTest
         assertEquals("product.png", download.getFileName());
     }
 
+    @Test
+    void downloadGeneratedImageByImageIdReturnsOwnedGeneratedImageWithTimeSequenceName()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("asset", 1L, "completed", true));
+        fixture.images.insertAiProductAssetImage(fixture.image("generated-1", "asset", 1L, "generated", "generated/a.png"));
+
+        AiProductAssetDownload download = fixture.service.downloadGeneratedImageByImageId(1L, "generated-1");
+
+        assertEquals("generated/a.png", fixture.storage.downloadedObjectKey);
+        assertArrayEquals(new byte[] {7, 8}, download.getBytes());
+        assertEquals("image/png", download.getContentType());
+        assertTrue(download.getFileName().matches("\\d{14}-01\\.png"));
+    }
+
+    @Test
+    void downloadGeneratedImageByImageIdRejectsSourceAndOtherUsersImages()
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("asset", 1L, "completed", true));
+        fixture.images.insertAiProductAssetImage(fixture.image("source", "asset", 1L, "source", "source/a.png"));
+        fixture.images.insertAiProductAssetImage(fixture.image("other", "asset", 2L, "generated", "generated/other.png"));
+
+        assertThrows(ServiceException.class, () -> fixture.service.downloadGeneratedImageByImageId(1L, "source"));
+        assertThrows(ServiceException.class, () -> fixture.service.downloadGeneratedImageByImageId(1L, "other"));
+    }
+
+    @Test
+    void downloadGeneratedImagesZipContainsSelectedImagesWithTimeSequenceNames() throws IOException
+    {
+        Fixture fixture = new Fixture();
+        fixture.assets.insertAiProductAsset(fixture.asset("asset", 1L, "completed", true));
+        fixture.images.insertAiProductAssetImage(fixture.image("generated-1", "asset", 1L, "generated", "generated/a.png"));
+        AiProductAssetImage jpg = fixture.image("generated-2", "asset", 1L, "generated", "generated/b.jpg");
+        jpg.setMimeType("image/jpeg");
+        fixture.images.insertAiProductAssetImage(jpg);
+
+        AiProductAssetDownload download = fixture.service.downloadGeneratedImagesZip(1L,
+                List.of("generated-2", "generated-1"));
+
+        assertEquals("application/zip", download.getContentType());
+        assertTrue(download.getFileName().matches("\\d{14}\\.zip"));
+        List<String> entries = zipEntries(download.getBytes());
+        assertEquals(2, entries.size());
+        assertTrue(entries.get(0).matches("\\d{14}-01\\.jpg"));
+        assertTrue(entries.get(1).matches("\\d{14}-02\\.png"));
+    }
+
+    private List<String> zipEntries(byte[] bytes) throws IOException
+    {
+        List<String> entries = new ArrayList<>();
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes)))
+        {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null)
+            {
+                entries.add(entry.getName());
+            }
+        }
+        return entries;
+    }
+
     private static class Fixture
     {
         private final FakeAssetMapper assets = new FakeAssetMapper();
         private final FakeImageMapper images = new FakeImageMapper();
+        private final FakeTaskMapper tasks = new FakeTaskMapper();
         private final FakeStorage storage = new FakeStorage();
-        private final AiProductAssetServiceImpl service = new AiProductAssetServiceImpl(assets, images, storage);
+        private final AiProductAssetServiceImpl service = new AiProductAssetServiceImpl(assets, images, storage, tasks);
 
         private AiProductAsset asset(String id, Long userId, String status, boolean visible)
         {
@@ -225,6 +371,17 @@ class AiProductAssetServiceImplTest
         @Override public int deleteImagesByAssetId(String assetId, Long userId) { return images.removeIf(image -> assetId.equals(image.getProductAssetId()) && userId.equals(image.getUserId())) ? 1 : 0; }
     }
 
+    private static class FakeTaskMapper implements AiProductImageTaskMapper
+    {
+        private AiProductImageTask task;
+
+        @Override public AiProductImageTask selectAiProductImageTaskById(String id) { return task != null && id.equals(task.getId()) ? task : null; }
+        @Override public List<AiProductImageTask> selectAiProductImageTaskList(AiProductImageTask query) { return task == null ? List.of() : List.of(task); }
+        @Override public int insertAiProductImageTask(AiProductImageTask task) { this.task = task; return 1; }
+        @Override public int updateAiProductImageTask(AiProductImageTask task) { this.task = task; return 1; }
+        @Override public int updateAiProductImageTaskIfStatus(AiProductImageTask task, String expectedStatus) { this.task = task; return 1; }
+    }
+
     private static class FakeStorage implements AiObjectStorageService
     {
         private int uploadCalls;
@@ -239,6 +396,7 @@ class AiProductAssetServiceImplTest
         @Override public AiStoredObject copyProductImageObject(String sourceObjectKey, Long userId) { copyCalls++; return stored("copy/" + sourceObjectKey); }
         @Override public List<AiStoredObjectSummary> listProductImageObjects(Date olderThan) { return List.of(); }
         @Override public byte[] downloadObject(String objectKey) { downloadedObjectKey = objectKey; return new byte[] {7, 8}; }
+        @Override public String presignObjectUrl(String objectKey, long expireSeconds) { return "https://signed.example/" + objectKey; }
         @Override public void deleteObject(String objectKey) { if (failDelete) { throw new IllegalStateException("oss unavailable"); } deletedObjectKeys.add(objectKey); }
 
         private AiStoredObject stored(String key)

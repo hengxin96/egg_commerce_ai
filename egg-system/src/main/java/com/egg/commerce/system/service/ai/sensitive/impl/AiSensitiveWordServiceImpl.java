@@ -6,6 +6,7 @@ import com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveWordMapper;
 import com.egg.commerce.system.service.ai.sensitive.AiSensitiveWordService;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,28 @@ public class AiSensitiveWordServiceImpl implements AiSensitiveWordService
     public List<AiSensitiveWord> selectAiSensitiveWordList(AiSensitiveWord query)
     {
         return sensitiveWordMapper.selectAiSensitiveWordList(query);
+    }
+
+    /**
+     * 判断文本是否包含启用状态的敏感词，只返回命中结果，避免泄露具体词条。
+     */
+    @Override
+    public boolean containsEnabledSensitiveWord(String content)
+    {
+        if (StringUtils.isBlank(content))
+        {
+            return false;
+        }
+        String normalizedContent = content.toLowerCase(Locale.ROOT);
+        for (String word : sensitiveWordMapper.selectEnabledSensitiveWords())
+        {
+            String normalizedWord = StringUtils.trimToEmpty(word).toLowerCase(Locale.ROOT);
+            if (StringUtils.isNotBlank(normalizedWord) && normalizedContent.contains(normalizedWord))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

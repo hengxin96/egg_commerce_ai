@@ -5,6 +5,7 @@ import com.egg.commerce.common.core.controller.BaseController;
 import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.common.core.page.TableDataInfo;
 import com.egg.commerce.common.enums.BusinessType;
+import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeAccessRoleUpdateRequest;
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import com.egg.commerce.system.service.ai.knowledge.AiKnowledgeDocumentService;
 import java.util.List;
@@ -14,8 +15,10 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -82,6 +85,18 @@ public class AiKnowledgeDocumentController extends BaseController
     public AjaxResult downloadUrls(@PathVariable String[] ids)
     {
         return success(knowledgeDocumentService.selectDownloadUrls(ids));
+    }
+
+    /**
+     * 批量设置知识库文档可访问角色，上传后默认 admin，可由后台扩展到 common。
+     */
+    @PreAuthorize("@ss.hasPermi('ai:knowledge:upload')")
+    @Log(title = "AI知识库", businessType = BusinessType.UPDATE)
+    @PutMapping("/access-roles")
+    public AjaxResult accessRoles(@RequestBody AiKnowledgeAccessRoleUpdateRequest request)
+    {
+        return toAjax(knowledgeDocumentService.updateAccessRoles(request == null ? null : request.getIds(),
+                request == null ? null : request.getAccessRoles()));
     }
 
     /**

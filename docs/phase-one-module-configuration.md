@@ -56,34 +56,27 @@ EGG_AI_TASK_QUEUE_KEY=ai:task:queue
 EGG_AI_DUPLICATE_LOCK_SECONDS=600
 ```
 
-## 3. MinIO
+## 3. 对象存储（Ali OSS）
 
 为什么需要：
 
 - 保存用户上传商品原图、参考图、AI 生成图、编辑图、导出 ZIP/Excel/Markdown。
 - AI 模型返回的临时 URL 不能作为长期素材地址，必须转存对象存储。
-- 前端不得接触 MinIO AccessKey/SecretKey，只能使用后端签名 URL。
+- 前端不得接触对象存储 AccessKey/SecretKey，只能使用后端签名 URL。
 
 在哪里配置：
 
-- Docker: `compose.postgres.yml`
 - 后端对象存储: `egg-admin/src/main/resources/application.yml`
 - 环境变量: `.env.example`
-
-本地默认使用国内镜像前缀，避免 Docker Hub 直连失败：
-
-```text
-EGG_MINIO_IMAGE=swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/minio/minio:latest
-```
 
 关键配置：
 
 ```text
-EGG_MINIO_ENDPOINT=http://localhost:9000
-EGG_MINIO_PUBLIC_ENDPOINT=http://localhost:9000
-EGG_MINIO_BUCKET=egg-commerce-assets
-EGG_MINIO_ROOT_USER=eggminio
-EGG_MINIO_ROOT_PASSWORD=egg_minio_dev_password
+EGG_ALIOSS_ENDPOINT=oss-cn-hangzhou.aliyuncs.com
+EGG_ALIOSS_BUCKET=zhx-img-test
+EGG_ALIOSS_ACCESS_KEY_ID=
+EGG_ALIOSS_ACCESS_KEY_SECRET=
+EGG_ALIOSS_OBJECT_PREFIX=ai
 ```
 
 ## 4. RAG
@@ -146,7 +139,7 @@ EGG_MODEL_IMAGE_API_KEY=<secret>
 为什么需要：
 
 - 项目宪法要求第一版必须真实出图，不能只输出 Prompt。
-- 生成图必须转存 MinIO，进入素材库，记录模型、Prompt、参数、任务和审核状态。
+- 生成图必须转存对象存储，进入素材库，记录模型、Prompt、参数、任务和审核状态。
 
 在哪里配置：
 
@@ -218,13 +211,12 @@ docker compose -f compose.postgres.yml up -d
 ```text
 PostgreSQL: localhost:5432
 Redis: localhost:6381
-MinIO API: http://localhost:9000
-MinIO Console: http://localhost:9001
+对象存储: 由 `egg-admin/src/main/resources/application.yml` 与 `.env.example` 配置，按实际环境接入
 ```
 
 ## 10. 第一版开发顺序
 
-1. 登录、商品库、MinIO 上传、Redis 任务中心、后台基础配置。
+1. 登录、商品库、对象存储上传、Redis 任务中心、后台基础配置。
 2. 智能聊天、RAG 检索、Coze/Agent 调用、来源记录。
 3. 商品分析、真实图片生成、详情页组图、风格复刻、批量精修。
 4. 素材库、版本管理、审核、下载、导出。

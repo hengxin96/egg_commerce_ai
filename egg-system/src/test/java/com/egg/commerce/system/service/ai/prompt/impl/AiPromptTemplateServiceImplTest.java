@@ -93,6 +93,25 @@ class AiPromptTemplateServiceImplTest
         }
 
         /**
+         * 提示词模板服务测试不涉及剧情运行时模板定位，返回空结果即可。
+         */
+        @Override
+        public AiPromptTemplate selectPublishedTemplateForStoryStage(String category, String platformPrefix,
+                List<String> fallbackCategories)
+        {
+            return null;
+        }
+
+        /**
+         * 提示词模板服务测试不涉及通用运行时模板定位，返回空结果即可。
+         */
+        @Override
+        public AiPromptTemplate selectPublishedTemplateByCategory(String category)
+        {
+            return null;
+        }
+
+        /**
          * 提示词模板服务测试不涉及商品图运行时模板定位，返回空结果即可。
          */
         @Override
@@ -100,6 +119,7 @@ class AiPromptTemplateServiceImplTest
         {
             return null;
         }
+
         /**
          * 捕获服务层准备保存的新增模板。
          */

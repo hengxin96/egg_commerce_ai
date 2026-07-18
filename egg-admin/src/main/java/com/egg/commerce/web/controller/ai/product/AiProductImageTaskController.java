@@ -2,6 +2,8 @@ package com.egg.commerce.web.controller.ai.product;
 
 import com.egg.commerce.common.core.controller.BaseController;
 import com.egg.commerce.common.core.domain.AjaxResult;
+import com.egg.commerce.system.domain.ai.product.AiProductImageTaskConfirmRequest;
+import com.egg.commerce.system.domain.ai.product.AiProductImageTaskReplanRequest;
 import com.egg.commerce.system.domain.ai.product.AiProductImageTaskRequest;
 import com.egg.commerce.system.service.ai.product.AiProductImageTaskService;
 import org.springframework.validation.annotation.Validated;
@@ -52,5 +54,17 @@ public class AiProductImageTaskController extends BaseController
     public AjaxResult cancel(@PathVariable String id)
     {
         return success(taskService.cancelTask(id, getUserId()));
+    }
+
+    @PostMapping("/{id}/confirm")
+    public AjaxResult confirm(@PathVariable String id, @RequestBody(required = false) AiProductImageTaskConfirmRequest request)
+    {
+        return success(taskService.confirmTask(id, getUserId(), request));
+    }
+
+    @PostMapping("/{id}/replan")
+    public AjaxResult replan(@PathVariable String id, @RequestBody(required = false) AiProductImageTaskReplanRequest request)
+    {
+        return success(taskService.replanTask(id, getUserId(), request));
     }
 }

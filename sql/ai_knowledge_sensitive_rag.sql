@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS ai_knowledge_documents (
     vector_store varchar(50) NOT NULL DEFAULT 'milvus',
     vector_collection varchar(255),
     vector_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    access_roles varchar(255) NOT NULL DEFAULT 'admin',
     chunk_count integer NOT NULL DEFAULT 0,
     retry_count integer NOT NULL DEFAULT 0,
     status varchar(30) NOT NULL DEFAULT 'processing',
@@ -23,6 +24,9 @@ CREATE TABLE IF NOT EXISTS ai_knowledge_documents (
     updated_at timestamp without time zone NOT NULL DEFAULT now(),
     completed_at timestamp without time zone
 );
+
+ALTER TABLE ai_knowledge_documents
+    ADD COLUMN IF NOT EXISTS access_roles varchar(255) NOT NULL DEFAULT 'admin';
 
 CREATE TABLE IF NOT EXISTS ai_sensitive_categories (
     id bigserial PRIMARY KEY,
@@ -77,15 +81,22 @@ CREATE TABLE IF NOT EXISTS ai_chat_retrieval_sources (
     chunk_index integer,
     source_title varchar(255),
     snippet text,
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     score numeric(10, 6),
     created_at timestamp without time zone NOT NULL DEFAULT now()
 );
+
+ALTER TABLE ai_chat_retrieval_sources
+    ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE UNIQUE INDEX IF NOT EXISTS ux_ai_knowledge_documents_object_key
     ON ai_knowledge_documents(oss_bucket, oss_object_key);
 
 CREATE INDEX IF NOT EXISTS idx_ai_knowledge_documents_status
     ON ai_knowledge_documents(status);
+
+CREATE INDEX IF NOT EXISTS idx_ai_knowledge_documents_access_roles
+    ON ai_knowledge_documents(access_roles);
 
 CREATE INDEX IF NOT EXISTS idx_ai_knowledge_documents_created_by
     ON ai_knowledge_documents(created_by, created_at DESC);

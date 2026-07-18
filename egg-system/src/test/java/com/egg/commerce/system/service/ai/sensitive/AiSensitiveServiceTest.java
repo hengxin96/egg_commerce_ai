@@ -1,7 +1,9 @@
 package com.egg.commerce.system.service.ai.sensitive;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.domain.ai.sensitive.AiSensitiveCategory;
@@ -93,6 +95,20 @@ class AiSensitiveServiceTest
     }
 
     /**
+     * 验证用户提问命中已启用敏感词时只返回布尔结果，不暴露具体词条。
+     */
+    @Test
+    void containsEnabledSensitiveWordDetectsEnabledWords()
+    {
+        FakeSensitiveWordMapper mapper = new FakeSensitiveWordMapper();
+        mapper.enabledWords.add("forbidden");
+        AiSensitiveWordServiceImpl service = new AiSensitiveWordServiceImpl(mapper);
+
+        assertTrue(service.containsEnabledSensitiveWord("This question has forbidden content."));
+        assertFalse(service.containsEnabledSensitiveWord("This question is clean."));
+    }
+
+    /**
      * 验证存在关联词条的分类不能删除。
      */
     @Test
@@ -178,6 +194,8 @@ class AiSensitiveServiceTest
     {
         private AiSensitiveWord inserted;
 
+        private final List<String> enabledWords = new ArrayList<>();
+
         /**
          * 词条测试不需要按 ID 查询，返回空结果。
          */
@@ -213,6 +231,15 @@ class AiSensitiveServiceTest
         public int updateAiSensitiveWord(AiSensitiveWord word)
         {
             return 0;
+        }
+
+        /**
+         * 返回预置启用词条，用于敏感内容命中判断测试。
+         */
+        @Override
+        public List<String> selectEnabledSensitiveWords()
+        {
+            return enabledWords;
         }
 
         /**

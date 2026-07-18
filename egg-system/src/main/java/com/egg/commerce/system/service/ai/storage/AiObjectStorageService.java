@@ -27,6 +27,9 @@ public interface AiObjectStorageService
     /** 下载指定 OSS 对象内容。 */
     byte[] downloadObject(String objectKey);
 
+    /** Generate a short-lived URL for a private OSS object. */
+    String presignObjectUrl(String objectKey, long expireSeconds);
+
     /** 删除对象存储中的指定文件。 */
     void deleteObject(String objectKey);
 }

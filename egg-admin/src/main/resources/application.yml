@@ -18,7 +18,7 @@ egg:
   # - rag/local|milvus: 本地开发默认使用内存向量检索；接入真实 Milvus 时通过 EGG_AI_VECTOR_STORE=milvus 切换。
   # - model-gateway: 文本、视觉理解、图片生成和 Embedding 都走统一模型网关，方便日志、重试、成本和密钥管理。
   ai:
-    mock-enabled: ${EGG_AI_MOCK_ENABLED:true}
+    mock-enabled: ${EGG_AI_MOCK_ENABLED:false}
     storage:
       provider: alioss
       alioss:
@@ -42,11 +42,28 @@ egg:
         password: ${EGG_MILVUS_PASSWORD:}
         database: ${EGG_MILVUS_DATABASE:default}
         collection: ${EGG_MILVUS_COLLECTION:vector_store}
+    story:
+      aspect-ratio: ${EGG_STORY_ASPECT_RATIO:9:16}
+      video-model-name: ${EGG_STORY_VIDEO_MODEL_NAME:视频模型}
+      image-model-name: ${EGG_STORY_IMAGE_MODEL_NAME:图片模型}
     model-gateway:
+      timeout-seconds: ${EGG_AI_MODEL_TIMEOUT_SECONDS:240}
       text:
         provider: ${EGG_MODEL_TEXT_PROVIDER:dashscope}
         model: ${EGG_MODEL_TEXT_NAME:qwen3.7-max}
+        endpoint: ${EGG_DASHSCOPE_ENDPOINT:https://dashscope.aliyuncs.com/compatible-mode/v1}
         api-key: ${EGG_DASHSCOPE_API_KEY:}
+      vision:
+        provider: ${EGG_MODEL_VISION_PROVIDER:dashscope}
+        model: ${EGG_MODEL_VISION_NAME:qwen3.7-plus}
+        endpoint: ${EGG_DASHSCOPE_COMPAT_ENDPOINT:https://dashscope.aliyuncs.com/compatible-mode/v1}
+        api-key: ${EGG_DASHSCOPE_API_KEY:}
+        high-resolution: ${EGG_MODEL_VISION_HIGH_RESOLUTION:true}
+      story:
+        provider: ${EGG_MODEL_STORY_PROVIDER:deepseek}
+        model: ${EGG_MODEL_STORY_NAME:deepseek-v4-pro}
+        endpoint: ${EGG_DEEPSEEK_ENDPOINT:https://api.deepseek.com}
+        api-key: ${EGG_DEEPSEEK_API_KEY:sk-acde3bad37974a84a38ba023627ee3a9}
       image:
         provider: ${EGG_MODEL_IMAGE_PROVIDER:dashscope}
         model: ${EGG_MODEL_IMAGE_NAME:wan2.7-image-pro}
@@ -160,7 +177,7 @@ token:
   # 令牌密钥
   secret: ${EGG_TOKEN_SECRET:change-me-please-use-env}
   # 令牌有效期（默认30分钟）
-  expireTime: 30
+  expireTime: 60
 
 # MyBatis配置
 mybatis:

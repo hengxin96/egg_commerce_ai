@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.story.AiStoryTaskMapper">
+
+    <!-- 剧情任务 SQL 映射，保存固定节点输出和任务进度。 -->
+    <resultMap id="AiStoryTaskResult" type="com.egg.commerce.system.domain.ai.story.AiStoryTask">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="taskType" column="task_type"/>
+        <result property="storyTheme" column="story_theme"/>
+        <result property="productInfo" column="product_info"/>
+        <result property="targetPlatform" column="target_platform"/>
+        <result property="targetAudience" column="target_audience"/>
+        <result property="storyStyle" column="story_style"/>
+        <result property="storyDuration" column="story_duration"/>
+        <result property="currentNode" column="current_node"/>
+        <result property="status" column="status"/>
+        <result property="failureReason" column="failure_reason"/>
+        <result property="storyPromptTemplateId" column="story_prompt_template_id"/>
+        <result property="storyPromptVersion" column="story_prompt_version"/>
+        <result property="storyOutput" column="story_output"/>
+        <result property="scriptPromptTemplateId" column="script_prompt_template_id"/>
+        <result property="scriptPromptVersion" column="script_prompt_version"/>
+        <result property="scriptOutput" column="script_output"/>
+        <result property="storyboardPromptTemplateId" column="storyboard_prompt_template_id"/>
+        <result property="storyboardPromptVersion" column="storyboard_prompt_version"/>
+        <result property="storyboardOutput" column="storyboard_output"/>
+        <result property="storyboardCheckPromptTemplateId" column="storyboard_check_prompt_template_id"/>
+        <result property="storyboardCheckPromptVersion" column="storyboard_check_prompt_version"/>
+        <result property="storyboardCheckOutput" column="storyboard_check_output"/>
+        <result property="visualPromptTemplateId" column="visual_prompt_template_id"/>
+        <result property="visualPromptVersion" column="visual_prompt_version"/>
+        <result property="visualOutput" column="visual_output"/>
+        <result property="debugPrompts" column="debug_prompts"/>
+        <result property="platformRuleId" column="platform_rule_id"/>
+        <result property="platformRuleVersion" column="platform_rule_version"/>
+        <result property="modelProvider" column="model_provider"/>
+        <result property="modelName" column="model_name"/>
+        <result property="modelParams" column="model_params"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAiStoryTaskVo">
+        select id,
+               user_id,
+               task_type,
+               story_theme,
+               product_info,
+               target_platform,
+               target_audience,
+               story_style,
+               story_duration,
+               current_node,
+               status,
+               failure_reason,
+               story_prompt_template_id,
+               story_prompt_version,
+               story_output,
+               script_prompt_template_id,
+               script_prompt_version,
+               script_output,
+               storyboard_prompt_template_id,
+               storyboard_prompt_version,
+               storyboard_output,
+               storyboard_check_prompt_template_id,
+               storyboard_check_prompt_version,
+               storyboard_check_output,
+               visual_prompt_template_id,
+               visual_prompt_version,
+               visual_output,
+               debug_prompts::text as debug_prompts,
+               platform_rule_id,
+               platform_rule_version,
+               model_provider,
+               model_name,
+               model_params::text as model_params,
+               started_at,
+               completed_at,
+               created_at,
+               updated_at
+        from ai_story_tasks
+    </sql>
+
+    <!-- 按任务 ID 查询剧情任务。 -->
+    <select id="selectAiStoryTaskById" parameterType="String" resultMap="AiStoryTaskResult">
+        <include refid="selectAiStoryTaskVo"/>
+        where id = cast(#{id} as uuid)
+    </select>
+
+    <!-- 查询当前用户剧情任务列表，任务中心按创建时间倒序展示。 -->
+    <select id="selectAiStoryTaskList" parameterType="com.egg.commerce.system.domain.ai.story.AiStoryTask"
+            resultMap="AiStoryTaskResult">
+        <include refid="selectAiStoryTaskVo"/>
+        <where>
+            <if test="userId != null">
+                and user_id = #{userId}
+            </if>
+            <if test="taskType != null and taskType != ''">
+                and task_type = #{taskType}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <!-- 新增剧情任务，初始只保存用户输入、节点、状态和模型快照。 -->
+    <insert id="insertAiStoryTask" parameterType="com.egg.commerce.system.domain.ai.story.AiStoryTask">
+        insert into ai_story_tasks (
+            id, user_id, task_type, story_theme, product_info, target_platform, target_audience,
+            story_style, story_duration, current_node, status, failure_reason, debug_prompts,
+            model_provider, model_name, model_params, created_at, updated_at
+        ) values (
+            cast(#{id} as uuid), #{userId}, #{taskType}, #{storyTheme}, #{productInfo}, #{targetPlatform},
+            #{targetAudience}, #{storyStyle}, #{storyDuration}, #{currentNode}, #{status}, #{failureReason},
+            cast(#{debugPrompts} as jsonb), #{modelProvider}, #{modelName}, cast(#{modelParams} as jsonb),
+            #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <!-- 更新剧情任务所有可变字段，异步节点每完成一步都会调用该语句回写进度。 -->
+    <update id="updateAiStoryTask" parameterType="com.egg.commerce.system.domain.ai.story.AiStoryTask">
+        update ai_story_tasks
+        set task_type = #{taskType},
+            story_theme = #{storyTheme},
+            product_info = #{productInfo},
+            target_platform = #{targetPlatform},
+            target_audience = #{targetAudience},
+            story_style = #{storyStyle},
+            story_duration = #{storyDuration},
+            current_node = #{currentNode},
+            status = #{status},
+            failure_reason = #{failureReason},
+            story_prompt_template_id = cast(#{storyPromptTemplateId} as uuid),
+            story_prompt_version = #{storyPromptVersion},
+            story_output = #{storyOutput},
+            script_prompt_template_id = cast(#{scriptPromptTemplateId} as uuid),
+            script_prompt_version = #{scriptPromptVersion},
+            script_output = #{scriptOutput},
+            storyboard_prompt_template_id = cast(#{storyboardPromptTemplateId} as uuid),
+            storyboard_prompt_version = #{storyboardPromptVersion},
+            storyboard_output = #{storyboardOutput},
+            storyboard_check_prompt_template_id = cast(#{storyboardCheckPromptTemplateId} as uuid),
+            storyboard_check_prompt_version = #{storyboardCheckPromptVersion},
+            storyboard_check_output = #{storyboardCheckOutput},
+            visual_prompt_template_id = cast(#{visualPromptTemplateId} as uuid),
+            visual_prompt_version = #{visualPromptVersion},
+            visual_output = #{visualOutput},
+            debug_prompts = cast(#{debugPrompts} as jsonb),
+            platform_rule_id = cast(#{platformRuleId} as uuid),
+            platform_rule_version = #{platformRuleVersion},
+            model_provider = #{modelProvider},
+            model_name = #{modelName},
+            model_params = cast(#{modelParams} as jsonb),
+            started_at = #{startedAt},
+            completed_at = #{completedAt},
+            updated_at = #{updatedAt}
+        where id = cast(#{id} as uuid)
+    </update>
+</mapper>

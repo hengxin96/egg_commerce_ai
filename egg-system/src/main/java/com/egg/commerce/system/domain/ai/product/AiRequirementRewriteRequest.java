@@ -9,6 +9,8 @@ public class AiRequirementRewriteRequest implements Serializable
     private String productAssetId;
     private String assetType;
     private String targetPlatform;
+    private String targetLanguage;
+    private Boolean textEnabled;
     private String userRequirement;
 
     public String getProductAssetId() { return productAssetId; }
@@ -17,6 +19,10 @@ public class AiRequirementRewriteRequest implements Serializable
     public void setAssetType(String assetType) { this.assetType = assetType; }
     public String getTargetPlatform() { return targetPlatform; }
     public void setTargetPlatform(String targetPlatform) { this.targetPlatform = targetPlatform; }
+    public String getTargetLanguage() { return targetLanguage; }
+    public void setTargetLanguage(String targetLanguage) { this.targetLanguage = targetLanguage; }
+    public Boolean getTextEnabled() { return textEnabled; }
+    public void setTextEnabled(Boolean textEnabled) { this.textEnabled = textEnabled; }
     public String getUserRequirement() { return userRequirement; }
     public void setUserRequirement(String userRequirement) { this.userRequirement = userRequirement; }
 }

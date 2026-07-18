@@ -93,4 +93,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = cast(#{id} as uuid)
     </update>
 
+    <!-- 物理删除指定聊天会话。 -->
+    <delete id="deleteAiChatSessionById" parameterType="String">
+        delete from ai_chat_sessions
+        where id = cast(#{id} as uuid)
+    </delete>
+
 </mapper>

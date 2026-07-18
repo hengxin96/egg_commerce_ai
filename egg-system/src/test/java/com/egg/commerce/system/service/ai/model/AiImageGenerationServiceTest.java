@@ -1,8 +1,11 @@
 package com.egg.commerce.system.service.ai.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.alibaba.fastjson2.JSONArray;
+import com.alibaba.fastjson2.JSONObject;
 import com.egg.commerce.common.exception.ServiceException;
 import com.egg.commerce.system.service.ai.model.impl.AiDashScopeImageGenerationServiceImpl;
 import com.egg.commerce.system.service.ai.model.impl.AiMockImageGenerationServiceImpl;
@@ -12,10 +15,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import javax.net.ssl.SSLSession;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -33,6 +40,8 @@ class AiImageGenerationServiceTest
         request.setReferenceImageUrls(List.of("https://oss/source.png"));
         request.setAspectRatio("3:4");
         request.setQuality("2K");
+        request.setImageCount(3);
+        request.setSequential(false);
         request.setProvider("dashscope");
         request.setModel("wan2.7-image-pro");
 
@@ -42,6 +51,8 @@ class AiImageGenerationServiceTest
         assertEquals(List.of("https://oss/source.png"), request.getReferenceImageUrls());
         assertEquals("3:4", request.getAspectRatio());
         assertEquals("2K", request.getQuality());
+        assertEquals(3, request.getImageCount());
+        assertEquals(false, request.getSequential());
         assertEquals("dashscope", request.getProvider());
         assertEquals("wan2.7-image-pro", request.getModel());
     }
@@ -94,6 +105,62 @@ class AiImageGenerationServiceTest
         assertEquals(true, httpClient.timeouts.stream().allMatch(timeout -> timeout.toMillis() <= 5000L));
     }
 
+    @Test
+    void dashScopeImageGenerationSubmitsWan27MessagesBodyWithAllReferenceImages()
+    {
+        QueueHttpClient httpClient = new QueueHttpClient(List.of(
+                "{\"output\":{\"task_id\":\"task-1\"}}",
+                "{\"output\":{\"task_status\":\"SUCCEEDED\",\"results\":[{\"url\":\"https://oss/generated-1.png\"},{\"url\":\"https://oss/generated-2.png\"}]}}"));
+        AiDashScopeImageGenerationServiceImpl service = new AiDashScopeImageGenerationServiceImpl(environment(),
+                httpClient);
+        AiImageGenerationRequest request = request();
+        request.setNegativePrompt("no watermark");
+        request.setReferenceImageUrls(List.of("https://oss/source-1.png", "https://oss/source-2.png"));
+        request.setImageCount(2);
+        request.setSequential(false);
+
+        service.generate(request);
+
+        assertEquals("https://dashscope.test/api/v1/services/aigc/image-generation/generation",
+                httpClient.requests.get(0).uri().toString());
+        String body = httpClient.requestBodies.get(0);
+        assertFalse(body.contains("ref_img"));
+        assertFalse(body.contains("reference_image_urls"));
+        assertFalse(body.contains("negative_prompt"));
+        assertFalse(body.contains("prompt_extend"));
+        JSONObject json = JSONObject.parseObject(body);
+        assertEquals("wan2.7-image-pro", json.getString("model"));
+        JSONArray content = json.getJSONObject("input").getJSONArray("messages")
+                .getJSONObject(0).getJSONArray("content");
+        assertEquals(true, content.getJSONObject(0).getString("text").contains("clean product image"));
+        assertEquals(true, content.getJSONObject(0).getString("text").contains("no watermark"));
+        assertEquals("https://oss/source-1.png", content.getJSONObject(1).getString("image"));
+        assertEquals("https://oss/source-2.png", content.getJSONObject(2).getString("image"));
+        JSONObject parameters = json.getJSONObject("parameters");
+        assertEquals(2, parameters.getIntValue("n"));
+        assertEquals(false, parameters.getBooleanValue("enable_sequential"));
+        assertEquals(true, parameters.containsKey("watermark"));
+        assertEquals(false, parameters.getBooleanValue("watermark"));
+    }
+
+    @Test
+    void dashScopeImageGenerationUsesQualityAware2KSize()
+    {
+        QueueHttpClient httpClient = new QueueHttpClient(List.of(
+                "{\"output\":{\"task_id\":\"task-1\"}}",
+                "{\"output\":{\"task_status\":\"SUCCEEDED\",\"results\":[{\"url\":\"https://oss/generated.png\"}]}}"));
+        AiDashScopeImageGenerationServiceImpl service = new AiDashScopeImageGenerationServiceImpl(environment(),
+                httpClient);
+        AiImageGenerationRequest request = request();
+        request.setAspectRatio("3:4");
+        request.setQuality("2K");
+
+        service.generate(request);
+
+        JSONObject json = JSONObject.parseObject(httpClient.requestBodies.get(0));
+        assertEquals("1536*2048", json.getJSONObject("parameters").getString("size"));
+    }
+
     private AiImageGenerationRequest request()
     {
         AiImageGenerationRequest request = new AiImageGenerationRequest();
@@ -118,6 +185,8 @@ class AiImageGenerationServiceTest
     {
         private final List<String> responses;
         private final List<Duration> timeouts = new ArrayList<>();
+        private final List<HttpRequest> requests = new ArrayList<>();
+        private final List<String> requestBodies = new ArrayList<>();
         private int index;
 
         QueueHttpClient(List<String> responses)
@@ -129,11 +198,20 @@ class AiImageGenerationServiceTest
         public <T> HttpResponse<T> send(HttpRequest request, HttpResponse.BodyHandler<T> responseBodyHandler)
                 throws IOException, InterruptedException
         {
+            requests.add(request);
+            requestBodies.add(readBody(request));
             request.timeout().ifPresent(timeouts::add);
             String body = responses.get(index++);
             @SuppressWarnings("unchecked")
             T castBody = (T) body;
             return new SimpleHttpResponse<>(request, castBody);
+        }
+
+        private String readBody(HttpRequest request)
+        {
+            return request.bodyPublisher()
+                    .map(BodyCollector::collect)
+                    .orElse("");
         }
 
         @Override
@@ -203,6 +281,29 @@ class AiImageGenerationServiceTest
         {
             return Optional.empty();
         }
+    }
+
+    private static class BodyCollector implements Flow.Subscriber<ByteBuffer>
+    {
+        private final java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        private final CompletableFuture<String> result = new CompletableFuture<>();
+
+        static String collect(HttpRequest.BodyPublisher publisher)
+        {
+            BodyCollector collector = new BodyCollector();
+            publisher.subscribe(collector);
+            return collector.result.join();
+        }
+
+        @Override public void onSubscribe(Flow.Subscription subscription) { subscription.request(Long.MAX_VALUE); }
+        @Override public void onNext(ByteBuffer item)
+        {
+            byte[] chunk = new byte[item.remaining()];
+            item.get(chunk);
+            bytes.writeBytes(chunk);
+        }
+        @Override public void onError(Throwable throwable) { result.completeExceptionally(throwable); }
+        @Override public void onComplete() { result.complete(bytes.toString(StandardCharsets.UTF_8)); }
     }
 
     private static class SimpleHttpResponse<T> implements HttpResponse<T>

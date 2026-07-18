@@ -2,6 +2,7 @@ package com.egg.commerce.system.mapper.ai.knowledge;
 
 import com.egg.commerce.system.domain.ai.knowledge.AiKnowledgeDocument;
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 知识库文档数据访问接口，对应知识库文档元数据表。
@@ -24,6 +25,15 @@ public interface AiKnowledgeDocumentMapper
 
     /** 更新文档状态、向量 ID、失败原因等元数据。 */
     int updateAiKnowledgeDocument(AiKnowledgeDocument document);
+
+    /** 批量更新知识库文档可访问角色。 */
+    int updateAiKnowledgeDocumentAccessRoles(@Param("ids") String[] ids, @Param("accessRoles") String accessRoles);
+
+    /** 查询所有已完成向量化的文档 ID，供 admin 检索。 */
+    List<String> selectCompletedDocumentIds();
+
+    /** 按角色 key 查询已完成且可访问的文档 ID，供 RAG 检索前授权过滤。 */
+    List<String> selectCompletedDocumentIdsByAccessRoles(@Param("roleKeys") List<String> roleKeys);
 
     /** 批量删除文档元数据记录。 */
     int deleteAiKnowledgeDocumentByIds(String[] ids);

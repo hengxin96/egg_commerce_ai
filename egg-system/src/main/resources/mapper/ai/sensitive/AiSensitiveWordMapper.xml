@@ -57,6 +57,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by w.created_at desc
     </select>
 
+    <!-- 查询启用状态敏感词内容，供用户输入入模前做本地拦截。 -->
+    <select id="selectEnabledSensitiveWords" resultType="String">
+        select word
+        from ai_sensitive_words
+        where status = 'enabled'
+          and word is not null
+          and trim(word) != ''
+        order by id asc
+    </select>
+
     <!-- 新增敏感词条。 -->
     <insert id="insertAiSensitiveWord"
             parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord"

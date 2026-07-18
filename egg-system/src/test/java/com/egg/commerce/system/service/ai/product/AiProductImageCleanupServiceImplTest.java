@@ -147,6 +147,7 @@ class AiProductImageCleanupServiceImplTest
         @Override public AiStoredObject copyProductImageObject(String sourceObjectKey, Long userId) { throw new UnsupportedOperationException(); }
         @Override public List<AiStoredObjectSummary> listProductImageObjects(Date olderThan) { return new ArrayList<>(objects); }
         @Override public byte[] downloadObject(String objectKey) { throw new UnsupportedOperationException(); }
+        @Override public String presignObjectUrl(String objectKey, long expireSeconds) { throw new UnsupportedOperationException(); }
         @Override public void deleteObject(String objectKey) { deletedObjectKeys.add(objectKey); }
     }
 }

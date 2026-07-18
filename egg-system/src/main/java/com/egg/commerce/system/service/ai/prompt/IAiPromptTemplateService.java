@@ -17,6 +17,9 @@ public interface IAiPromptTemplateService
     /** 按条件查询提示词模板列表，供后台分页展示。 */
     List<AiPromptTemplate> selectAiPromptTemplateList(AiPromptTemplate promptTemplate);
 
+    /** 按分类查询最新已发布模板，供运行时读取系统提示词。 */
+    AiPromptTemplate selectPublishedTemplateByCategory(String category);
+
     /** 新增提示词模板，并补齐默认状态、变量定义和版本号。 */
     int insertAiPromptTemplate(AiPromptTemplate promptTemplate);
 

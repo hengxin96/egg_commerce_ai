@@ -4,6 +4,8 @@ import com.egg.commerce.common.core.controller.BaseController;
 import com.egg.commerce.common.core.domain.AjaxResult;
 import com.egg.commerce.common.utils.file.FileUtils;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
+import com.egg.commerce.system.domain.ai.product.AiProductImageDownloadRequest;
+import com.egg.commerce.system.domain.ai.product.AiProductImageOrderRequest;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetRenameRequest;
 import com.egg.commerce.system.service.ai.product.AiProductAssetService;
 import jakarta.servlet.http.HttpServletResponse;
@@ -50,6 +52,12 @@ public class AiProductAssetController extends BaseController
         return success();
     }
 
+    @PutMapping("/draft/images/order")
+    public AjaxResult updateDraftImageOrder(@RequestBody AiProductImageOrderRequest request)
+    {
+        return success(assetService.updateDraftImageOrder(getUserId(), request));
+    }
+
     @DeleteMapping("/draft")
     public AjaxResult clearDraft()
     {
@@ -85,6 +93,27 @@ public class AiProductAssetController extends BaseController
     public void download(@PathVariable String id, HttpServletResponse response) throws IOException
     {
         AiProductAssetDownload download = assetService.downloadGeneratedImage(getUserId(), id);
+        writeDownload(response, download);
+    }
+
+    @GetMapping("/images/{imageId}/download")
+    public void downloadImage(@PathVariable String imageId, HttpServletResponse response) throws IOException
+    {
+        AiProductAssetDownload download = assetService.downloadGeneratedImageByImageId(getUserId(), imageId);
+        writeDownload(response, download);
+    }
+
+    @PostMapping("/images/download-zip")
+    public void downloadImagesZip(@RequestBody AiProductImageDownloadRequest request,
+            HttpServletResponse response) throws IOException
+    {
+        AiProductAssetDownload download = assetService.downloadGeneratedImagesZip(getUserId(),
+                request == null ? null : request.getImageIds());
+        writeDownload(response, download);
+    }
+
+    private void writeDownload(HttpServletResponse response, AiProductAssetDownload download) throws IOException
+    {
         response.setContentType(download.getContentType());
         response.setContentLength(download.getBytes().length);
         FileUtils.setAttachmentResponseHeader(response, download.getFileName());

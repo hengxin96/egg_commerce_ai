@@ -17,6 +17,10 @@ public class AiImageGenerationRequest
 
     private String quality;
 
+    private Integer imageCount;
+
+    private Boolean sequential;
+
     private String provider;
 
     private String model;
@@ -79,6 +83,26 @@ public class AiImageGenerationRequest
     public void setQuality(String quality)
     {
         this.quality = quality;
+    }
+
+    public Integer getImageCount()
+    {
+        return imageCount;
+    }
+
+    public void setImageCount(Integer imageCount)
+    {
+        this.imageCount = imageCount;
+    }
+
+    public Boolean getSequential()
+    {
+        return sequential;
+    }
+
+    public void setSequential(Boolean sequential)
+    {
+        this.sequential = sequential;
     }
 
     public String getProvider()

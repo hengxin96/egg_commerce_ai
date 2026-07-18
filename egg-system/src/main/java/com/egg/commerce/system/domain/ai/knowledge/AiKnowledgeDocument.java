@@ -44,6 +44,9 @@ public class AiKnowledgeDocument
     /** 向量库返回的向量 ID JSON 数组，删除文档时用于精准清理 RAG 数据。 */
     private String vectorIds;
 
+    /** 可访问该文档的角色 key，逗号分隔；上传默认仅 admin，可批量扩展到 common。 */
+    private String accessRoles;
+
     /** 文档解析后生成的文本切片数量。 */
     private Integer chunkCount;
 
@@ -176,6 +179,16 @@ public class AiKnowledgeDocument
     public void setVectorIds(String vectorIds)
     {
         this.vectorIds = vectorIds;
+    }
+
+    public String getAccessRoles()
+    {
+        return accessRoles;
+    }
+
+    public void setAccessRoles(String accessRoles)
+    {
+        this.accessRoles = accessRoles;
     }
 
     public Integer getChunkCount()

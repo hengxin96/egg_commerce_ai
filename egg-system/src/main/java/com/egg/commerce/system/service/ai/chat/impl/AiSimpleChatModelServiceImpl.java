@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
  * 简单聊天模型实现，基于第一条 RAG 来源拼装可追溯的临时回答。
  */
 @Service
-@ConditionalOnProperty(name = "egg.ai.mock-enabled", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(name = "egg.ai.chat.simple-enabled", havingValue = "true")
 public class AiSimpleChatModelServiceImpl implements AiChatModelService
 {
     /**

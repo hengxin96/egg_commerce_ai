@@ -7,15 +7,29 @@ import com.egg.commerce.system.domain.ai.product.AiProductAssetDownload;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetDetail;
 import com.egg.commerce.system.domain.ai.product.AiProductAssetImage;
 import com.egg.commerce.system.domain.ai.product.AiProductDraftDetail;
+import com.egg.commerce.system.domain.ai.product.AiProductImageOrderRequest;
+import com.egg.commerce.system.domain.ai.product.AiProductImageTask;
 import com.egg.commerce.system.mapper.ai.product.AiProductAssetImageMapper;
 import com.egg.commerce.system.mapper.ai.product.AiProductAssetMapper;
+import com.egg.commerce.system.mapper.ai.product.AiProductImageTaskMapper;
 import com.egg.commerce.system.service.ai.product.AiProductAssetService;
 import com.egg.commerce.system.service.ai.storage.AiObjectStorageService;
 import com.egg.commerce.system.service.ai.storage.AiStoredObject;
+import java.io.ByteArrayOutputStream;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,18 +44,28 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
     private static final String STATUS_CANCELLED = "cancelled";
     private static final String ROLE_SOURCE = "source";
     private static final String ROLE_GENERATED = "generated";
+    private static final DateTimeFormatter DOWNLOAD_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final String DEFAULT_PRODUCT_NAME_PREFIX = "未命名商品-";
 
     private final AiProductAssetMapper assetMapper;
     private final AiProductAssetImageMapper imageMapper;
     private final AiObjectStorageService objectStorageService;
+    private final AiProductImageTaskMapper taskMapper;
 
+    @Autowired
     public AiProductAssetServiceImpl(AiProductAssetMapper assetMapper, AiProductAssetImageMapper imageMapper,
-            AiObjectStorageService objectStorageService)
+            AiObjectStorageService objectStorageService, AiProductImageTaskMapper taskMapper)
     {
         this.assetMapper = assetMapper;
         this.imageMapper = imageMapper;
         this.objectStorageService = objectStorageService;
+        this.taskMapper = taskMapper;
+    }
+
+    public AiProductAssetServiceImpl(AiProductAssetMapper assetMapper, AiProductAssetImageMapper imageMapper,
+            AiObjectStorageService objectStorageService)
+    {
+        this(assetMapper, imageMapper, objectStorageService, null);
     }
 
     @Override
@@ -88,6 +112,55 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
         }
         deleteObject(image.getOssObjectKey());
         imageMapper.deleteAiProductAssetImageById(imageId, userId);
+    }
+
+    @Override
+    public AiProductDraftDetail updateDraftImageOrder(Long userId, AiProductImageOrderRequest request)
+    {
+        requireUserId(userId);
+        AiProductAsset draft = requireCurrentDraft(userId);
+        if (request == null || request.getImageIds() == null || request.getImageIds().isEmpty())
+        {
+            throw new ServiceException("图片排序不能为空");
+        }
+        if (StringUtils.isBlank(request.getPrimaryImageId()))
+        {
+            throw new ServiceException("主参考图不能为空");
+        }
+
+        List<AiProductAssetImage> sourceImages = filterImages(
+                imageMapper.selectImagesByAssetId(draft.getId(), userId), ROLE_SOURCE);
+        Map<String, AiProductAssetImage> sourceById = new LinkedHashMap<>();
+        for (AiProductAssetImage image : sourceImages)
+        {
+            sourceById.put(image.getId(), image);
+        }
+
+        Set<String> requestedIds = new LinkedHashSet<>(request.getImageIds());
+        if (requestedIds.size() != request.getImageIds().size() || !requestedIds.equals(sourceById.keySet())
+                || !requestedIds.contains(request.getPrimaryImageId()))
+        {
+            throw new ServiceException("图片排序必须包含当前草稿的全部源图");
+        }
+
+        List<String> orderedIds = new ArrayList<>();
+        orderedIds.add(request.getPrimaryImageId());
+        for (String imageId : request.getImageIds())
+        {
+            if (!request.getPrimaryImageId().equals(imageId))
+            {
+                orderedIds.add(imageId);
+            }
+        }
+
+        for (int index = 0; index < orderedIds.size(); index++)
+        {
+            AiProductAssetImage image = sourceById.get(orderedIds.get(index));
+            image.setSortOrder(index);
+            image.setUpdatedAt(new Date());
+            imageMapper.updateAiProductAssetImage(image);
+        }
+        return draftDetail(draft, userId);
     }
 
     @Override
@@ -146,6 +219,54 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
                 ? "application/octet-stream" : image.getMimeType());
         download.setFileName(downloadFileName(detail.getAsset(), image));
         return download;
+    }
+
+    @Override
+    public AiProductAssetDownload downloadGeneratedImageByImageId(Long userId, String imageId)
+    {
+        AiProductAssetImage image = requireOwnedGeneratedImage(userId, imageId);
+        AiProductAssetDownload download = new AiProductAssetDownload();
+        download.setBytes(objectStorageService.downloadObject(image.getOssObjectKey()));
+        download.setContentType(StringUtils.isBlank(image.getMimeType())
+                ? "application/octet-stream" : image.getMimeType());
+        download.setFileName(timestampBase() + "-01." + extension(image));
+        return download;
+    }
+
+    @Override
+    public AiProductAssetDownload downloadGeneratedImagesZip(Long userId, List<String> imageIds)
+    {
+        requireUserId(userId);
+        if (imageIds == null || imageIds.isEmpty())
+        {
+            throw new ServiceException("请选择要下载的生成图");
+        }
+        String timestamp = timestampBase();
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+             ZipOutputStream zip = new ZipOutputStream(bytes))
+        {
+            int index = 1;
+            for (String imageId : imageIds)
+            {
+                AiProductAssetImage image = requireOwnedGeneratedImage(userId, imageId);
+                ZipEntry entry = new ZipEntry(timestamp + "-" + String.format("%02d", index) + "."
+                        + extension(image));
+                zip.putNextEntry(entry);
+                zip.write(objectStorageService.downloadObject(image.getOssObjectKey()));
+                zip.closeEntry();
+                index++;
+            }
+            zip.finish();
+            AiProductAssetDownload download = new AiProductAssetDownload();
+            download.setBytes(bytes.toByteArray());
+            download.setContentType("application/zip");
+            download.setFileName(timestamp + ".zip");
+            return download;
+        }
+        catch (Exception e)
+        {
+            throw new ServiceException("生成图 ZIP 下载失败");
+        }
     }
 
     @Override
@@ -240,7 +361,26 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
         detail.setAsset(asset);
         detail.setSourceImages(filterImages(images, ROLE_SOURCE));
         detail.setGeneratedImages(filterImages(images, ROLE_GENERATED));
+        AiProductImageTask latestTask = latestCompletedTask(asset, userId);
+        // Product detail pages need both the final audit result and the reviewed planning spec as read-only context.
+        detail.setAuditOutput(latestTask == null ? null : latestTask.getGenerationOutput());
+        detail.setPlanningOutput(latestTask == null ? null : latestTask.getPlanningOutput());
         return detail;
+    }
+
+    private AiProductImageTask latestCompletedTask(AiProductAsset asset, Long userId)
+    {
+        if (taskMapper == null || asset == null || StringUtils.isBlank(asset.getLastTaskId()))
+        {
+            return null;
+        }
+        AiProductImageTask task = taskMapper.selectAiProductImageTaskById(asset.getLastTaskId());
+        if (task == null || !userId.equals(task.getUserId()) || !asset.getId().equals(task.getProductAssetId())
+                || !STATUS_COMPLETED.equals(task.getStatus()))
+        {
+            return null;
+        }
+        return task;
     }
 
     private List<AiProductAssetImage> filterImages(List<AiProductAssetImage> images, String role)
@@ -253,6 +393,7 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
                 matched.add(image);
             }
         }
+        matched.sort(Comparator.comparing(image -> image.getSortOrder() == null ? 0 : image.getSortOrder()));
         return matched;
     }
 
@@ -316,6 +457,27 @@ public class AiProductAssetServiceImpl implements AiProductAssetService
         int index = objectKey == null ? -1 : objectKey.lastIndexOf('.');
         String extension = index < 0 ? "" : objectKey.substring(index + 1);
         return extension.matches("[A-Za-z0-9]{1,10}") ? extension.toLowerCase() : "bin";
+    }
+
+    private AiProductAssetImage requireOwnedGeneratedImage(Long userId, String imageId)
+    {
+        requireUserId(userId);
+        requireId(imageId, "图片不存在");
+        AiProductAssetImage image = imageMapper.selectAiProductAssetImageById(imageId);
+        if (image == null || !userId.equals(image.getUserId()) || !ROLE_GENERATED.equals(image.getImageRole()))
+        {
+            throw new ServiceException("图片不存在");
+        }
+        if (StringUtils.isBlank(image.getOssObjectKey()))
+        {
+            throw new ServiceException("Generated image object is unavailable");
+        }
+        return image;
+    }
+
+    private String timestampBase()
+    {
+        return LocalDateTime.now().format(DOWNLOAD_TIME_FORMAT);
     }
 
     private AiProductAsset requireCurrentDraft(Long userId)

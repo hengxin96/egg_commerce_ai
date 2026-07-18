@@ -64,15 +64,34 @@
           >
             <template v-if="effectiveUploadedImages.length">
               <ul class="upload-preview-list" aria-label="已上传产品图片">
-                <li v-for="image in effectiveUploadedImages" :key="image.id" class="upload-preview-item">
+                <li
+                  v-for="(image, index) in effectiveUploadedImages"
+                  :key="image.id"
+                  class="upload-preview-item"
+                  draggable="true"
+                  @click.stop
+                  @dragstart.stop="handlePreviewDragStart(index)"
+                  @dragover.prevent.stop
+                  @drop.prevent.stop="handlePreviewDrop(index)"
+                >
+                  <span class="upload-index">
+                    {{ index + 1 }}
+                  </span>
                   <button
                     class="upload-remove"
                     type="button"
                     :aria-label="`删除 ${image.name}`"
-                    @click.stop="removeImage(image.id)"
+                    @click.stop.prevent="removeImage(image.id)"
                   >
                     <el-icon><Close /></el-icon>
                   </button>
+                  <span
+                    v-if="index === 0"
+                    class="upload-primary"
+                    :aria-label="`主参考图 ${image.name}`"
+                  >
+                    主参考
+                  </span>
                   <img :src="image.url" :alt="image.name" />
                 </li>
               </ul>
@@ -117,21 +136,34 @@
               </el-select>
             </label>
 
-            <label class="field-block" :style="promptFieldStyle">
+            <div class="field-block" :style="promptFieldStyle">
               <span>{{ promptFieldLabel }}</span>
-              <div class="prompt-shell">
+              <div class="prompt-shell" :class="{ 'has-helper': props.showPromptHelper }">
                 <el-input
                   v-model="form.prompt"
                   type="textarea"
                   :rows="5"
                   :placeholder="props.promptPlaceholder"
                 />
-                <button v-if="props.showPromptHelper" class="prompt-helper" type="button" @click="emitRewriteRequirement">
-                  <el-icon><MagicStick /></el-icon>
-                  AI 帮写
+                <!-- 帮写按钮独立于输入项 label，避免浏览器把点击转成文本域聚焦而丢失业务事件。 -->
+                <button
+                  v-if="props.showPromptHelper"
+                  class="prompt-helper"
+                  type="button"
+                  :class="{ 'is-loading': props.promptHelperLoading }"
+                  :disabled="props.promptHelperLoading"
+                  :aria-busy="props.promptHelperLoading"
+                  @mousedown.stop.prevent
+                  @click.stop.prevent="emitRewriteRequirement"
+                >
+                  <el-icon class="prompt-helper-main-icon">
+                    <Loading v-if="props.promptHelperLoading" />
+                    <MagicStick v-else />
+                  </el-icon>
+                  <span>{{ props.promptHelperLoading ? '帮写中' : 'AI帮写' }}</span>
                 </button>
               </div>
-            </label>
+            </div>
 
             <label v-if="props.showProductInfoField" class="field-block" :style="productInfoFieldStyle">
               <span>{{ props.productInfoLabel }}</span>
@@ -190,9 +222,19 @@
               <label v-if="props.showCountField" class="field-block">
                 <span>生成数量</span>
                 <el-select v-model="form.count" style="width:100%">
-                  <el-option label="1 张" :value="1" />
-                  <el-option label="4 张" :value="4" />
-                  <el-option label="8 张" :value="8" />
+                  <el-option
+                    v-for="option in countOptions"
+                    :key="option"
+                    :label="`${option} 张`"
+                    :value="option"
+                  />
+                </el-select>
+              </label>
+              <label v-if="props.showTextEnabledField" class="field-block">
+                <span>图片带文字</span>
+                <el-select v-model="form.textEnabled" style="width:100%">
+                  <el-option label="否" :value="false" />
+                  <el-option label="是" :value="true" />
                 </el-select>
               </label>
             </div>
@@ -250,10 +292,33 @@
               v-for="section in props.resultSections"
               :key="section.title"
               class="result-section"
+              :class="{
+                'is-loading-section': section.type === 'loading',
+                'is-plan-confirmation': section.type === 'plan-confirmation'
+              }"
             >
-              <h3>{{ section.title }}</h3>
-              <img v-if="section.imageUrl" class="result-image-preview" :src="section.imageUrl" :alt="section.title" />
-              <pre>{{ section.content || section.placeholder || '未生成' }}</pre>
+              <slot
+                v-if="section.type === 'plan-confirmation'"
+                name="plan-confirmation"
+                :section="section"
+              >
+                <pre>{{ section.content || section.placeholder || '未生成' }}</pre>
+              </slot>
+              <template v-else-if="section.type === 'loading'">
+                <h3>{{ section.title }}</h3>
+                <div class="result-progress-state" role="status" aria-live="polite">
+                  <span>{{ section.statusText || section.content || '正在处理，请稍候' }}</span>
+                  <div class="result-progress-bar" aria-hidden="true">
+                    <i></i>
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <h3>{{ section.title }}</h3>
+                <ProductImageAuditBadge v-if="section.audit" :audit="section.audit" />
+                <img v-if="section.imageUrl" class="result-image-preview" :src="section.imageUrl" :alt="section.title" />
+                <pre>{{ section.content || section.placeholder || '未生成' }}</pre>
+              </template>
             </article>
           </div>
           <div v-else class="result-empty">
@@ -277,6 +342,7 @@
 import { computed, getCurrentInstance, onBeforeUnmount, reactive, shallowRef, useTemplateRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Close, Download, Loading, MagicStick, Picture, Upload } from '@element-plus/icons-vue'
+import ProductImageAuditBadge from '@/components/product/ProductImageAuditBadge.vue'
 import { selectImageFiles, UPLOAD_LIMIT } from '@/utils/imageUpload'
 import { requireLogin } from '@/utils/authGuard'
 
@@ -287,6 +353,8 @@ const emit = defineEmits([
   'download',
   'upload-image',
   'remove-image',
+  'reorder-image',
+  'set-primary-image',
   'rewrite-requirement',
   'cancel'
 ])
@@ -308,10 +376,12 @@ const props = defineProps({
   showUploadPanel: { type: Boolean, default: true },
   showAssetTabs: { type: Boolean, default: true },
   showPromptHelper: { type: Boolean, default: true },
+  promptHelperLoading: { type: Boolean, default: false },
   showProductInfoField: { type: Boolean, default: false },
   showRatioField: { type: Boolean, default: true },
   showQualityField: { type: Boolean, default: true },
   showCountField: { type: Boolean, default: true },
+  showTextEnabledField: { type: Boolean, default: true },
   uploadedImages: { type: Array, default: () => [] },
   uploading: { type: Boolean, default: false },
   showCancelButton: { type: Boolean, default: false },
@@ -341,10 +411,7 @@ const props = defineProps({
   modelOptions: {
     type: Array,
     default: () => [
-      { label: 'Nova 2.0', value: 'Nova 2.0' },
-      { label: 'Nova 2.0 Lite', value: 'Nova 2.0 Lite' },
-      { label: 'Nova Pro', value: 'Nova Pro' },
-      { label: 'Nova IMG-2', value: 'Nova IMG-2' }
+      { label: 'wan2.7-image-pro', value: 'wan2.7-image-pro' }
     ]
   },
   ratioFieldLabel: { type: String, default: '尺寸比例' },
@@ -373,9 +440,14 @@ const props = defineProps({
   }
 })
 
+const MAIN_ASSET_TYPE = '主图'
+const DETAIL_ASSET_TYPE = '详情图'
+const mainImageCountOptions = [1, 2, 3, 4]
+const detailImageCountOptions = [1, 2, 3, 4, 5, 6, 7, 8]
+
 const assetTypes = [
-  { label: '主图' },
-  { label: '详情图' }
+  { label: MAIN_ASSET_TYPE },
+  { label: DETAIL_ASSET_TYPE }
 ]
 
 const firstOptionValue = (options, fallback) => options[0]?.value ?? fallback
@@ -385,13 +457,14 @@ const optionContainsValue = (options, value) => {
 }
 
 const form = reactive({
-  assetType: '主图',
+  assetType: MAIN_ASSET_TYPE,
   platform: firstOptionValue(props.platformOptions, '抖音'),
   ratio: firstOptionValue(props.ratioOptions, '3:4'),
   count: 1,
   language: firstOptionValue(props.languageOptions, 'zh-CN'),
-  model: firstOptionValue(props.modelOptions, 'Nova 2.0'),
+  model: firstOptionValue(props.modelOptions, 'wan2.7-image-pro'),
   quality: '2K',
+  textEnabled: false,
   prompt: '',
   productInfo: ''
 })
@@ -399,6 +472,7 @@ const form = reactive({
 const fileInput = useTemplateRef('fileInput')
 const localUploadedImages = shallowRef([])
 const isDragging = shallowRef(false)
+const draggedPreviewIndex = shallowRef(null)
 let nextImageId = 0
 let dragDepth = 0
 
@@ -427,6 +501,9 @@ const selectedStepName = computed(() => props.selectedStep || activeStepName.val
 const effectiveUploadedImages = computed(() => (
   hasExternalUploadState.value ? props.uploadedImages : localUploadedImages.value
 ))
+const countOptions = computed(() => (
+  form.assetType === DETAIL_ASSET_TYPE ? detailImageCountOptions : mainImageCountOptions
+))
 
 const syncOptionField = (field, options, fallback) => {
   if (!options.length || optionContainsValue(options, form[field])) {
@@ -442,7 +519,7 @@ watch(
   () => {
     syncOptionField('platform', props.platformOptions, '抖音')
     syncOptionField('language', props.languageOptions, 'zh-CN')
-    syncOptionField('model', props.modelOptions, 'Nova 2.0')
+    syncOptionField('model', props.modelOptions, 'wan2.7-image-pro')
     syncOptionField('ratio', props.ratioOptions, '3:4')
   },
   { immediate: true }
@@ -457,14 +534,24 @@ watch(
   }
 )
 
+watch(
+  () => form.assetType,
+  () => {
+    if (!countOptions.value.includes(form.count)) {
+      form.count = countOptions.value[0]
+    }
+  }
+)
+
 const resetWorkspaceForm = () => {
-  form.assetType = '主图'
+  form.assetType = MAIN_ASSET_TYPE
   form.platform = firstOptionValue(props.platformOptions, '抖音')
   form.ratio = firstOptionValue(props.ratioOptions, '3:4')
   form.count = 1
   form.language = firstOptionValue(props.languageOptions, 'zh-CN')
-  form.model = firstOptionValue(props.modelOptions, 'Nova 2.0')
+  form.model = firstOptionValue(props.modelOptions, 'wan2.7-image-pro')
   form.quality = '2K'
+  form.textEnabled = false
   form.prompt = ''
   form.productInfo = ''
   localUploadedImages.value.forEach((image) => URL.revokeObjectURL(image.url))
@@ -613,7 +700,223 @@ const removeImage = (imageId) => {
   localUploadedImages.value = localUploadedImages.value.filter((item) => item.id !== imageId)
 }
 
+const persistPreviewOrder = (nextImages, primaryImageId = nextImages[0]?.id) => {
+  if (!nextImages.length) {
+    return
+  }
+  if (!hasExternalUploadState.value) {
+    localUploadedImages.value = nextImages
+  }
+  emit('reorder-image', {
+    imageIds: nextImages.map((image) => image.id),
+    primaryImageId
+  })
+}
+
+const handlePreviewDragStart = (index) => {
+  draggedPreviewIndex.value = index
+}
+
+const handlePreviewDrop = (index) => {
+  const fromIndex = draggedPreviewIndex.value
+  draggedPreviewIndex.value = null
+  if (fromIndex === null || fromIndex === index) {
+    return
+  }
+  const nextImages = [...effectiveUploadedImages.value]
+  const [moved] = nextImages.splice(fromIndex, 1)
+  nextImages.splice(index, 0, moved)
+  persistPreviewOrder(nextImages)
+}
+
 onBeforeUnmount(() => {
   localUploadedImages.value.forEach((image) => URL.revokeObjectURL(image.url))
 })
 </script>
+
+<style scoped>
+.prompt-shell {
+  position: relative;
+}
+
+.prompt-shell.has-helper :deep(.el-textarea__inner) {
+  padding-right: 16px !important;
+  padding-bottom: 50px !important;
+}
+
+.prompt-shell .prompt-helper {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2;
+  min-width: 82px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 10px;
+  border: 1px solid rgba(17, 18, 23, 0.08);
+  border-radius: 999px;
+  color: #111217;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 3px 10px rgba(17, 18, 23, 0.09);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 780;
+  white-space: nowrap;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.prompt-helper:hover {
+  background: #fff;
+  box-shadow: 0 7px 18px rgba(17, 18, 23, 0.12);
+}
+
+.prompt-helper:active {
+  transform: translateY(1px);
+  box-shadow: 0 3px 8px rgba(17, 18, 23, 0.1);
+}
+
+.prompt-helper.is-loading,
+.prompt-helper:disabled {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.prompt-helper-main-icon {
+  font-size: 15px;
+}
+
+.upload-preview-item {
+  position: relative;
+}
+
+.upload-index,
+.upload-primary {
+  position: absolute;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.upload-index {
+  left: 4px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(17, 18, 23, 0.62);
+  box-shadow: 0 2px 8px rgba(17, 18, 23, 0.12);
+}
+
+.upload-primary {
+  left: 50%;
+  bottom: 8px;
+  min-width: 52px;
+  height: 22px;
+  padding: 0 7px;
+  transform: translateX(-50%);
+  color: #111217;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 3px 10px rgba(17, 18, 23, 0.1);
+  border-radius: 999px;
+}
+
+.prompt-helper.is-loading .prompt-helper-main-icon {
+  animation: prompt-helper-spin 1s linear infinite;
+}
+
+.result-canvas,
+.result-content,
+.result-section {
+  min-height: 0;
+}
+
+.result-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.result-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-section.is-plan-confirmation {
+  overflow: hidden;
+}
+
+.result-section.is-loading-section {
+  justify-content: flex-start;
+}
+
+.result-progress-state {
+  flex: 0 0 auto;
+  min-height: 108px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 18px;
+  border: 1px solid rgba(17, 18, 23, 0.08);
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 760;
+  box-shadow: 0 8px 24px rgba(17, 18, 23, 0.04);
+}
+
+.result-progress-bar {
+  position: relative;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(17, 18, 23, 0.08);
+}
+
+.result-progress-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(17, 18, 23, 0.22), rgba(17, 18, 23, 0.72));
+  animation: result-progress-slide 1.2s ease-in-out infinite;
+}
+
+.result-section pre {
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.result-content.is-single-section .result-section pre {
+  flex: 1;
+  min-height: 0;
+}
+
+@keyframes prompt-helper-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes result-progress-slide {
+  0% {
+    transform: translateX(-105%);
+  }
+  55% {
+    transform: translateX(85%);
+  }
+  100% {
+    transform: translateX(245%);
+  }
+}
+</style>

@@ -151,6 +151,33 @@ class AiKnowledgeVectorizationServiceImplTest
         }
 
         /**
+         * 向量化测试不覆盖访问角色批量更新。
+         */
+        @Override
+        public int updateAiKnowledgeDocumentAccessRoles(String[] ids, String accessRoles)
+        {
+            return 0;
+        }
+
+        /**
+         * 向量化测试不覆盖 RAG 授权文档查询。
+         */
+        @Override
+        public List<String> selectCompletedDocumentIds()
+        {
+            return Collections.emptyList();
+        }
+
+        /**
+         * 向量化测试不覆盖 RAG 授权文档查询。
+         */
+        @Override
+        public List<String> selectCompletedDocumentIdsByAccessRoles(List<String> roleKeys)
+        {
+            return Collections.emptyList();
+        }
+
+        /**
          * 清空测试文档引用。
          */
         @Override
