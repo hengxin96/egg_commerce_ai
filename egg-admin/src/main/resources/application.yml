@@ -63,7 +63,8 @@ egg:
         provider: ${EGG_MODEL_STORY_PROVIDER:deepseek}
         model: ${EGG_MODEL_STORY_NAME:deepseek-v4-pro}
         endpoint: ${EGG_DEEPSEEK_ENDPOINT:https://api.deepseek.com}
-        api-key: ${EGG_DEEPSEEK_API_KEY:sk-acde3bad37974a84a38ba023627ee3a9}
+        # 密钥只允许来自环境变量，禁止把真实 key 写成默认值：本仓库为公开仓库，写进配置即等于公开。
+        api-key: ${EGG_DEEPSEEK_API_KEY:}
       image:
         provider: ${EGG_MODEL_IMAGE_PROVIDER:dashscope}
         model: ${EGG_MODEL_IMAGE_NAME:wan2.7-image-pro}

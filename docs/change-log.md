@@ -1492,3 +1492,154 @@ Main files:
 - `docs/phase-one-module-configuration.md`
 - `.env.example`
 - `compose.postgres.yml`
+
+## 2026-07-19
+
+### 补充全品类商品图后端方法注释
+
+Author: Codex
+
+What changed:
+
+- 为全品类商品图相关 controller、任务编排、资产、AI 帮写、Java2D 合成、审核、OSS 存储和 DashScope 图片网关方法补充通俗 Javadoc。
+- 注释说明了每个方法的业务目的、关键参数含义、返回结果和运维排查关注点。
+- 修正了 OSS 存储服务中两处与方法职责不一致的旧注释。
+
+Why:
+
+- 项目后端主要由 AI 协作开发完成，后续运维和维护人员需要能快速理解商品图生成链路。
+
+Main files:
+
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/ai/product`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/product/impl`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/storage/impl/AiAliOssObjectStorageServiceImpl.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ai/model/impl/AiDashScopeImageGenerationServiceImpl.java`
+- `docs/change-log.md`
+
+Notes:
+
+- 这是注释和维护文档更新，不改变 API、数据库、任务状态或模型调用逻辑。
+
+## 2026-07-21
+
+### Added Official Lottery Rules Research Note
+
+Author: Codex
+
+What changed:
+
+- Added a short research note summarizing official basic-play rules for Shuangseqiu, Super Lotto, and Qilecai as of 2026-07-21.
+- Captured the number ranges, per-ticket selection counts, machine-pick definitions, draw cadence, and calculated first-prize probabilities needed by a future machine-pick feature.
+
+Why:
+
+- Future implementation should use official lottery rule sources instead of prediction or secondary lottery sites.
+
+Main files:
+
+- `docs/research/lottery-official-rules-2026.md`
+- `docs/change-log.md`
+
+Notes:
+
+- This was a documentation-only research update. No code, database schema, UI, or feature behavior was changed.
+
+### Added Admin Lottery Random Picker
+
+Author: Codex
+
+What changed:
+
+- Added an administrator-only System Management page for lottery random picks.
+- Supports Shuangseqiu, Super Lotto, and Qilecai with score/filter modes, single/matrix modes, strategy switches, default 5 generated groups, and configurable history windows.
+- Added historical draw-record CRUD APIs and a PostgreSQL seed script with 30 screenshot-derived issues for each supported lottery.
+- Added focused backend tests for official number ranges, strategy behavior, history-window influence, matrix generation, and draw-record validation.
+
+Why:
+
+- The admin console needed an internal lottery machine-pick tool that follows official basic-play structures and can later absorb more trend indicators from stored historical draws.
+
+Main files:
+
+- `egg-admin/src/main/java/com/egg/commerce/web/controller/system/lottery/LotteryRandomPickerController.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/lottery`
+- `egg-ui/src/views/system/lottery/index.vue`
+- `egg-ui/src/api/system/lottery.js`
+- `sql/lottery_random_picker.sql`
+- `docs/feature-map.md`
+
+## 2026-08-03
+
+### Fixed Front-Stage Auto Registration Role Lookup
+
+Author: Codex
+
+What changed:
+
+- Changed front-stage auto-registration to fetch the `common` role through an exact `role_key` lookup that does not invoke backend `@DataScope`.
+- Added a regression test that verifies first-time phone registration binds the `common` role without calling the data-scoped role list query.
+
+Why:
+
+- New users were inserted successfully, but the first login attempt failed before token creation because role binding called a data-scoped backend role API without a current `LoginUser`.
+
+Main files:
+
+- `egg-framework/src/main/java/com/egg/commerce/framework/web/service/FrontUserAuthService.java`
+- `egg-framework/src/test/java/com/egg/commerce/framework/web/service/FrontUserAuthServiceTest.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/ISysRoleService.java`
+- `egg-system/src/main/java/com/egg/commerce/system/service/impl/SysRoleServiceImpl.java`
+- `egg-system/src/main/java/com/egg/commerce/system/mapper/SysRoleMapper.java`
+- `egg-system/src/main/resources/mapper/system/SysRoleMapper.xml`
+- `docs/feature-map.md`
+
+## 2026-08-05
+
+### 修复全品类商品图确认规划阶段卡住
+
+Author: Codex
+
+What changed:
+
+- 修复前台商品图页面在 `processing + 确认规划` 状态下提前停止轮询的问题。
+- 规划内容尚未产出时展示“AI 正在生成规划”的进度态，等任务真正进入 `waiting_confirmation` 后再显示确认规划编辑器。
+- 补充前端回归测试，锁定确认规划阶段的轮询边界。
+
+Why:
+
+- 后端进入规划阶段时会先把当前节点标记为“确认规划”，但模型仍在生成 `planningOutput`；前端此前按节点名停止轮询，导致页面停留在“等待节点输出”。
+
+Main files:
+
+- `egg-user-web/src/pages/ProductImagesPage.vue`
+- `egg-user-web/src/pages/ProductImagesPage.product-image.test.js`
+- `docs/change-log.md`
+
+## 2026-10-20
+
+### 重写 README 并移除硬编码模型密钥
+
+Author: Codex
+
+What changed:
+
+- 按当前真实实现重写根目录 README：补充已实现/仅占位的功能对照表、实际技术栈与版本、已接入模型清单、本地启动五步、核心业务流程、接口分区、已知坑与许可证说明。
+- 移除 `application.yml` 中 DeepSeek API Key 的硬编码默认值，改为仅从 `EGG_DEEPSEEK_API_KEY` 环境变量读取。
+- 在 README 中补充 MIT 许可证的版权保留说明。
+
+Why:
+
+- 原 README 仍描述"规划中"的产品形态，与已跑通的商品图、聊天 RAG、剧情生成链路不符，外部读者无法判断项目真实进度。
+- DeepSeek 密钥曾作为配置默认值提交并推送到公开仓库分支，属于凭证泄露，必须从配置文件中清除，避免后续继续扩散。
+
+Main files:
+
+- `README.md`
+- `egg-admin/src/main/resources/application.yml`
+- `docs/change-log.md`
+
+Notes:
+
+- 删除配置中的密钥不能消除历史提交中的记录，该密钥需要在 DeepSeek 控制台作废并重新生成。
+- 本地与服务器运行前必须通过环境变量提供 `EGG_DEEPSEEK_API_KEY`，否则剧情生成会因缺少密钥失败。
