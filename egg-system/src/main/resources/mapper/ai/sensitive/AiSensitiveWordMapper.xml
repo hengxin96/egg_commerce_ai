@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.sensitive.AiSensitiveWordMapper">
+
+    <!-- 敏感词条 SQL 映射，维护敏感词与分类的后台管理查询。 -->
+    <resultMap id="AiSensitiveWordResult" type="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord">
+        <id property="id" column="id"/>
+        <result property="word" column="word"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="status" column="status"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAiSensitiveWordVo">
+        select w.id,
+               w.word,
+               w.category_id,
+               c.category_name,
+               w.status,
+               w.created_by,
+               w.created_at,
+               w.updated_at
+        from ai_sensitive_words w
+        left join ai_sensitive_categories c on c.id = w.category_id
+    </sql>
+
+    <!-- 按 ID 查询敏感词条详情，并带出分类名称。 -->
+    <select id="selectAiSensitiveWordById" parameterType="Long" resultMap="AiSensitiveWordResult">
+        <include refid="selectAiSensitiveWordVo"/>
+        where w.id = #{id}
+    </select>
+
+    <!-- 后台敏感词条列表查询，支持词条、分类和状态筛选。 -->
+    <select id="selectAiSensitiveWordList"
+            parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord"
+            resultMap="AiSensitiveWordResult">
+        <include refid="selectAiSensitiveWordVo"/>
+        <where>
+            <if test="id != null">
+                and w.id = #{id}
+            </if>
+            <if test="word != null and word != ''">
+                and w.word like concat('%', #{word}, '%')
+            </if>
+            <if test="categoryId != null">
+                and w.category_id = #{categoryId}
+            </if>
+            <if test="status != null and status != ''">
+                and w.status = #{status}
+            </if>
+        </where>
+        order by w.created_at desc
+    </select>
+
+    <!-- 查询启用状态敏感词内容，供用户输入入模前做本地拦截。 -->
+    <select id="selectEnabledSensitiveWords" resultType="String">
+        select word
+        from ai_sensitive_words
+        where status = 'enabled'
+          and word is not null
+          and trim(word) != ''
+        order by id asc
+    </select>
+
+    <!-- 新增敏感词条。 -->
+    <insert id="insertAiSensitiveWord"
+            parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord"
+            useGeneratedKeys="true"
+            keyProperty="id">
+        insert into ai_sensitive_words (
+            word,
+            category_id,
+            status,
+            created_by,
+            created_at,
+            updated_at
+        ) values (
+            #{word},
+            #{categoryId},
+            #{status},
+            #{createdBy},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <!-- 更新敏感词内容、分类或状态。 -->
+    <update id="updateAiSensitiveWord"
+            parameterType="com.egg.commerce.system.domain.ai.sensitive.AiSensitiveWord">
+        update ai_sensitive_words
+        <set>
+            <if test="word != null">
+                word = #{word},
+            </if>
+            <if test="categoryId != null">
+                category_id = #{categoryId},
+            </if>
+            <if test="status != null and status != ''">
+                status = #{status},
+            </if>
+            updated_at = #{updatedAt}
+        </set>
+        where id = #{id}
+    </update>
+
+    <!-- 批量删除敏感词条。 -->
+    <delete id="deleteAiSensitiveWordByIds" parameterType="Long">
+        delete from ai_sensitive_words
+        where id in
+        <foreach collection="array" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

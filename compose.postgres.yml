@@ -19,5 +19,23 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: ${EGG_REDIS_IMAGE:-swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/redis/redis-stack-server:7.4.0-v8}
+    container_name: egg-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "${EGG_REDIS_PORT:-6381}:6379"
+    volumes:
+      - egg-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   egg-postgres-data:
+  egg-redis-data:

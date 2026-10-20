@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.chat.AiChatRetrievalSourceMapper">
+
+    <!-- 智能聊天检索来源 SQL 映射，负责 RAG 来源查询和落库字段绑定。 -->
+    <resultMap id="AiChatRetrievalSourceResult" type="com.egg.commerce.system.domain.ai.chat.AiChatRetrievalSource">
+        <id property="id" column="id"/>
+        <result property="messageId" column="message_id"/>
+        <result property="documentId" column="document_id"/>
+        <result property="sourceRank" column="source_rank"/>
+        <result property="chunkIndex" column="chunk_index"/>
+        <result property="sourceTitle" column="source_title"/>
+        <result property="snippet" column="snippet"/>
+        <result property="metadata" column="metadata"/>
+        <result property="score" column="score"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- 查询指定助手消息的检索来源，返回给前端做答案溯源。 -->
+    <select id="selectAiChatRetrievalSourceListByMessageId" parameterType="String"
+            resultMap="AiChatRetrievalSourceResult">
+        select id,
+               message_id,
+               document_id,
+               source_rank,
+               chunk_index,
+               source_title,
+               snippet,
+               metadata::text as metadata,
+               score,
+               created_at
+        from ai_chat_retrieval_sources
+        where message_id = cast(#{messageId} as uuid)
+        order by source_rank asc
+    </select>
+
+    <!-- 保存回答引用的单条 RAG 来源。 -->
+    <insert id="insertAiChatRetrievalSource"
+            parameterType="com.egg.commerce.system.domain.ai.chat.AiChatRetrievalSource">
+        insert into ai_chat_retrieval_sources (
+            id,
+            message_id,
+            document_id,
+            source_rank,
+            chunk_index,
+            source_title,
+            snippet,
+            metadata,
+            score,
+            created_at
+        ) values (
+            cast(#{id} as uuid),
+            cast(#{messageId} as uuid),
+            cast(#{documentId} as uuid),
+            #{sourceRank},
+            #{chunkIndex},
+            #{sourceTitle},
+            #{snippet},
+            cast(#{metadata} as jsonb),
+            #{score},
+            #{createdAt}
+        )
+    </insert>
+
+    <!-- 物理删除指定会话内全部回答来源。 -->
+    <delete id="deleteAiChatRetrievalSourcesBySessionId" parameterType="String">
+        delete from ai_chat_retrieval_sources
+        where message_id in (
+            select id
+            from ai_chat_messages
+            where session_id = cast(#{sessionId} as uuid)
+        )
+    </delete>
+
+</mapper>

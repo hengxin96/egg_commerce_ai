@@ -45,6 +45,14 @@ public interface SysUserMapper
     public SysUser selectUserByUserName(String userName);
 
     /**
+     * 通过手机号码查询用户，供前台手机号登录与忘记密码使用。
+     *
+     * @param phonenumber 手机号码
+     * @return 用户对象信息
+     */
+    public SysUser selectUserByPhonenumber(String phonenumber);
+
+    /**
      * 通过用户ID查询用户
      * 
      * @param userId 用户ID

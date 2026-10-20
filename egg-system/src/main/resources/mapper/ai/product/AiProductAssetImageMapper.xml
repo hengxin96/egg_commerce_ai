@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.product.AiProductAssetImageMapper">
+
+    <!-- 商品图图片资产 SQL 映射，源图和生成图共用一张表。 -->
+    <resultMap id="AiProductAssetImageResult" type="com.egg.commerce.system.domain.ai.product.AiProductAssetImage">
+        <id property="id" column="id"/>
+        <result property="productAssetId" column="product_asset_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="taskId" column="task_id"/>
+        <result property="imageRole" column="image_role"/>
+        <result property="ossBucket" column="oss_bucket"/>
+        <result property="ossObjectKey" column="oss_object_key"/>
+        <result property="ossUrl" column="oss_url"/>
+        <result property="mimeType" column="mime_type"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="width" column="width"/>
+        <result property="height" column="height"/>
+        <result property="sortOrder" column="sort_order"/>
+        <result property="analysisRole" column="analysis_role"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAiProductAssetImageVo">
+        select id,
+               product_asset_id,
+               user_id,
+               task_id,
+               image_role,
+               oss_bucket,
+               oss_object_key,
+               oss_url,
+               mime_type,
+               file_size,
+               width,
+               height,
+               sort_order,
+               analysis_role,
+               created_at,
+               updated_at
+        from ai_product_asset_images
+    </sql>
+
+    <!-- 根据图片 ID 查询图片记录，服务层负责校验 user_id。 -->
+    <select id="selectAiProductAssetImageById" parameterType="String" resultMap="AiProductAssetImageResult">
+        <include refid="selectAiProductAssetImageVo"/>
+        where id = cast(#{id} as uuid)
+    </select>
+
+    <!-- 根据 OSS object key 查询图片记录，供孤儿对象清理判断数据库引用。 -->
+    <select id="selectImageByObjectKey" parameterType="String" resultMap="AiProductAssetImageResult">
+        <include refid="selectAiProductAssetImageVo"/>
+        where oss_object_key = #{ossObjectKey}
+    </select>
+
+    <!-- 查询某个商品资产下当前用户的图片，按源图和生成图排序展示。 -->
+    <select id="selectImagesByAssetId" resultMap="AiProductAssetImageResult">
+        <include refid="selectAiProductAssetImageVo"/>
+        where product_asset_id = cast(#{productAssetId} as uuid)
+          and user_id = #{userId}
+        order by sort_order asc, created_at asc
+    </select>
+
+    <!-- 查询某个商品图任务下当前用户的图片。 -->
+    <select id="selectImagesByTaskId" resultMap="AiProductAssetImageResult">
+        <include refid="selectAiProductAssetImageVo"/>
+        where task_id = cast(#{taskId} as uuid)
+          and user_id = #{userId}
+        order by sort_order asc, created_at asc
+    </select>
+
+    <!-- 新增图片资产，用户选择图片后立即保存源图记录。 -->
+    <insert id="insertAiProductAssetImage" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAssetImage">
+        insert into ai_product_asset_images (
+            id, product_asset_id, user_id, task_id, image_role, oss_bucket, oss_object_key, oss_url,
+            mime_type, file_size, width, height, sort_order, analysis_role, created_at, updated_at
+        ) values (
+            cast(#{id} as uuid), cast(#{productAssetId} as uuid), #{userId}, cast(#{taskId} as uuid),
+            #{imageRole}, #{ossBucket}, #{ossObjectKey}, #{ossUrl}, #{mimeType}, #{fileSize},
+            #{width}, #{height}, #{sortOrder}, #{analysisRole}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <!-- 更新图片元数据，AI 自动识别后可补充 analysis_role。 -->
+    <update id="updateAiProductAssetImage" parameterType="com.egg.commerce.system.domain.ai.product.AiProductAssetImage">
+        update ai_product_asset_images
+        set product_asset_id = cast(#{productAssetId} as uuid),
+            task_id = cast(#{taskId} as uuid),
+            image_role = #{imageRole},
+            oss_bucket = #{ossBucket},
+            oss_object_key = #{ossObjectKey},
+            oss_url = #{ossUrl},
+            mime_type = #{mimeType},
+            file_size = #{fileSize},
+            width = #{width},
+            height = #{height},
+            sort_order = #{sortOrder},
+            analysis_role = #{analysisRole},
+            updated_at = #{updatedAt}
+        where id = cast(#{id} as uuid)
+          and user_id = #{userId}
+    </update>
+
+    <!-- 删除单张图片时必须带 user_id，避免跨用户误删。 -->
+    <delete id="deleteAiProductAssetImageById">
+        delete from ai_product_asset_images
+        where id = cast(#{id} as uuid)
+          and user_id = #{userId}
+    </delete>
+
+    <!-- 删除商品资产下所有图片记录时必须带 user_id。 -->
+    <delete id="deleteImagesByAssetId">
+        delete from ai_product_asset_images
+        where product_asset_id = cast(#{productAssetId} as uuid)
+          and user_id = #{userId}
+    </delete>
+</mapper>

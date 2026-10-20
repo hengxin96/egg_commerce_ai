@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.product.AiProductImageTaskMapper">
+
+    <!-- 商品图任务 SQL 映射，保存固定节点输出和 DashScope 任务快照。 -->
+    <resultMap id="AiProductImageTaskResult" type="com.egg.commerce.system.domain.ai.product.AiProductImageTask">
+        <id property="id" column="id"/>
+        <result property="productAssetId" column="product_asset_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="taskType" column="task_type"/>
+        <result property="assetType" column="asset_type"/>
+        <result property="targetPlatform" column="target_platform"/>
+        <result property="currentNode" column="current_node"/>
+        <result property="status" column="status"/>
+        <result property="failureReason" column="failure_reason"/>
+        <result property="cancelReason" column="cancel_reason"/>
+        <result property="analysisOutput" column="analysis_output"/>
+        <result property="planningOutput" column="planning_output"/>
+        <result property="generationOutput" column="generation_output"/>
+        <result property="debugPrompts" column="debug_prompts"/>
+        <result property="dashscopeTaskId" column="dashscope_task_id"/>
+        <result property="modelProvider" column="model_provider"/>
+        <result property="modelName" column="model_name"/>
+        <result property="modelParams" column="model_params"/>
+        <result property="startedAt" column="started_at"/>
+        <result property="completedAt" column="completed_at"/>
+        <result property="cancelledAt" column="cancelled_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectAiProductImageTaskVo">
+        select id,
+               product_asset_id,
+               user_id,
+               task_type,
+               asset_type,
+               target_platform,
+               current_node,
+               status,
+               failure_reason,
+               cancel_reason,
+               analysis_output::text as analysis_output,
+               planning_output::text as planning_output,
+               generation_output::text as generation_output,
+               debug_prompts::text as debug_prompts,
+               dashscope_task_id,
+               model_provider,
+               model_name,
+               model_params::text as model_params,
+               started_at,
+               completed_at,
+               cancelled_at,
+               created_at,
+               updated_at
+        from ai_product_image_tasks
+    </sql>
+
+    <!-- 根据任务 ID 查询商品图任务，服务层负责校验 user_id。 -->
+    <select id="selectAiProductImageTaskById" parameterType="String" resultMap="AiProductImageTaskResult">
+        <include refid="selectAiProductImageTaskVo"/>
+        where id = cast(#{id} as uuid)
+    </select>
+
+    <!-- 查询当前用户商品图任务列表，任务中心按创建时间倒序展示。 -->
+    <select id="selectAiProductImageTaskList" parameterType="com.egg.commerce.system.domain.ai.product.AiProductImageTask"
+            resultMap="AiProductImageTaskResult">
+        <include refid="selectAiProductImageTaskVo"/>
+        <where>
+            user_id = #{userId}
+            <if test="taskType != null and taskType != ''">
+                and task_type = #{taskType}
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+            <if test="assetType != null and assetType != ''">
+                and asset_type = #{assetType}
+            </if>
+        </where>
+        order by created_at desc
+    </select>
+
+    <!-- 新增商品图任务，初始只保存输入、节点、状态和模型快照。 -->
+    <insert id="insertAiProductImageTask" parameterType="com.egg.commerce.system.domain.ai.product.AiProductImageTask">
+        insert into ai_product_image_tasks (
+            id, product_asset_id, user_id, task_type, asset_type, target_platform, current_node, status,
+            failure_reason, cancel_reason, analysis_output, planning_output, generation_output, debug_prompts,
+            dashscope_task_id, model_provider, model_name, model_params, started_at, completed_at,
+            cancelled_at, created_at, updated_at
+        ) values (
+            cast(#{id} as uuid), cast(#{productAssetId} as uuid), #{userId}, #{taskType}, #{assetType},
+            #{targetPlatform}, #{currentNode}, #{status}, #{failureReason}, #{cancelReason},
+            cast(#{analysisOutput} as jsonb), cast(#{planningOutput} as jsonb),
+            cast(#{generationOutput} as jsonb), cast(#{debugPrompts} as jsonb), #{dashscopeTaskId},
+            #{modelProvider}, #{modelName}, cast(#{modelParams} as jsonb), #{startedAt}, #{completedAt},
+            #{cancelledAt}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <!-- 更新商品图任务进度、节点输出、失败/终止原因和模型快照。 -->
+    <update id="updateAiProductImageTask" parameterType="com.egg.commerce.system.domain.ai.product.AiProductImageTask">
+        update ai_product_image_tasks
+        set product_asset_id = cast(#{productAssetId} as uuid),
+            task_type = #{taskType},
+            asset_type = #{assetType},
+            target_platform = #{targetPlatform},
+            current_node = #{currentNode},
+            status = #{status},
+            failure_reason = #{failureReason},
+            cancel_reason = #{cancelReason},
+            analysis_output = cast(#{analysisOutput} as jsonb),
+            planning_output = cast(#{planningOutput} as jsonb),
+            generation_output = cast(#{generationOutput} as jsonb),
+            debug_prompts = cast(#{debugPrompts} as jsonb),
+            dashscope_task_id = #{dashscopeTaskId},
+            model_provider = #{modelProvider},
+            model_name = #{modelName},
+            model_params = cast(#{modelParams} as jsonb),
+            started_at = #{startedAt},
+            completed_at = #{completedAt},
+            cancelled_at = #{cancelledAt},
+            updated_at = #{updatedAt}
+        where id = cast(#{id} as uuid)
+          and user_id = #{userId}
+    </update>
+
+    <!-- Conditional writes make cancellation win over a stale asynchronous worker. -->
+    <update id="updateAiProductImageTaskIfStatus">
+        update ai_product_image_tasks
+        set product_asset_id = cast(#{task.productAssetId} as uuid),
+            task_type = #{task.taskType}, asset_type = #{task.assetType}, target_platform = #{task.targetPlatform},
+            current_node = #{task.currentNode}, status = #{task.status}, failure_reason = #{task.failureReason},
+            cancel_reason = #{task.cancelReason}, analysis_output = cast(#{task.analysisOutput} as jsonb),
+            planning_output = cast(#{task.planningOutput} as jsonb),
+            generation_output = cast(#{task.generationOutput} as jsonb),
+            debug_prompts = cast(#{task.debugPrompts} as jsonb), dashscope_task_id = #{task.dashscopeTaskId},
+            model_provider = #{task.modelProvider}, model_name = #{task.modelName},
+            model_params = cast(#{task.modelParams} as jsonb), started_at = #{task.startedAt},
+            completed_at = #{task.completedAt}, cancelled_at = #{task.cancelledAt}, updated_at = #{task.updatedAt}
+        where id = cast(#{task.id} as uuid) and user_id = #{task.userId} and status = #{expectedStatus}
+    </update>
+</mapper>

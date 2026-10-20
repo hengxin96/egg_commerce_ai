@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.egg.commerce.system.mapper.ai.prompt.AiPromptTemplateMapper">
+
+    <!-- 提示词模板 SQL 映射，保存 Markdown 提示词 JSON 和变量配置。 -->
+    <resultMap type="AiPromptTemplate" id="AiPromptTemplateResult">
+        <id     property="id"          column="id"          />
+        <result property="name"        column="name"        />
+        <result property="description" column="description" />
+        <result property="category"    column="category"    />
+        <result property="content"     column="content"     />
+        <result property="variables"   column="variables"   />
+        <result property="version"     column="version"     />
+        <result property="status"      column="status"      />
+        <result property="createdBy"   column="created_by"  />
+        <result property="createdAt"   column="created_at"  />
+        <result property="updatedAt"   column="updated_at"  />
+    </resultMap>
+
+    <sql id="selectAiPromptTemplateVo">
+        select id, name, description, category, content::text as content, variables::text as variables,
+               version, status, created_by, created_at, updated_at
+        from ai_prompt_templates
+    </sql>
+
+    <!-- 按 ID 查询提示词模板详情。 -->
+    <select id="selectAiPromptTemplateById" parameterType="String" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        where id = #{id}::uuid
+    </select>
+
+    <!-- 后台提示词模板列表查询，支持名称、分类和状态筛选。 -->
+    <select id="selectAiPromptTemplateList" parameterType="AiPromptTemplate" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        <where>
+            <if test="name != null and name != ''">
+                and name like concat('%', #{name}, '%')
+            </if>
+            <if test="category != null and category != ''">
+                and category like concat('%', #{category}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                and status = #{status}
+            </if>
+        </where>
+        order by updated_at desc, created_at desc
+    </select>
+
+    <!--
+        剧情任务运行时查询发布模板。
+        先按当前节点分类查找，同时兼容旧分类名称；剧情生成阶段会额外按“平台-”名称前缀定位平台专属模板。
+    -->
+    <select id="selectPublishedTemplateForStoryStage" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        where status = 'published'
+          and (
+            category = #{category}
+            <if test="fallbackCategories != null and fallbackCategories.size() > 0">
+                or category in
+                <foreach item="fallbackCategory" collection="fallbackCategories" open="(" separator="," close=")">
+                    #{fallbackCategory}
+                </foreach>
+            </if>
+          )
+        <if test="platformPrefix != null and platformPrefix != ''">
+            and name like concat(#{platformPrefix}, '%')
+        </if>
+        order by version desc, updated_at desc, created_at desc
+        limit 1
+    </select>
+
+    <!-- 按分类查询最新已发布模板，供 RAG 聊天等通用运行时能力使用。 -->
+    <select id="selectPublishedTemplateByCategory" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        where status = 'published'
+          and category = #{category}
+        order by version desc, updated_at desc, created_at desc
+        limit 1
+    </select>
+
+    <!-- 按模板名称和分类查询最新已发布模板，供商品图主图、详情图和 AI 帮写运行时使用。 -->
+    <select id="selectPublishedTemplateByNameAndCategory" resultMap="AiPromptTemplateResult">
+        <include refid="selectAiPromptTemplateVo"/>
+        where status = 'published'
+          and name = #{name}
+          and category = #{category}
+        order by version desc, updated_at desc, created_at desc
+        limit 1
+    </select>
+
+    <!-- 新增提示词模板，正文和变量以 JSONB 形式保存。 -->
+    <insert id="insertAiPromptTemplate" parameterType="AiPromptTemplate">
+        insert into ai_prompt_templates (
+            name, description, category, content, variables, version, status, created_by, created_at, updated_at
+        ) values (
+            #{name}, #{description}, #{category}, CAST(#{content} AS jsonb), CAST(#{variables} AS jsonb),
+            #{version}, #{status}, #{createdBy}, now(), now()
+        )
+    </insert>
+
+    <!-- 更新提示词模板内容并自动递增版本。 -->
+    <update id="updateAiPromptTemplate" parameterType="AiPromptTemplate">
+        update ai_prompt_templates
+        set name = #{name},
+            description = #{description},
+            category = #{category},
+            content = CAST(#{content} AS jsonb),
+            variables = CAST(#{variables} AS jsonb),
+            status = #{status},
+            version = coalesce(version, 1) + 1,
+            updated_at = now()
+        where id = #{id}::uuid
+    </update>
+
+    <!-- 删除单个提示词模板。 -->
+    <delete id="deleteAiPromptTemplateById" parameterType="String">
+        delete from ai_prompt_templates where id = #{id}::uuid
+    </delete>
+
+    <!-- 批量删除提示词模板。 -->
+    <delete id="deleteAiPromptTemplateByIds" parameterType="String">
+        delete from ai_prompt_templates where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}::uuid
+        </foreach>
+    </delete>
+</mapper>

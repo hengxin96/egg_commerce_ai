@@ -1,115 +1,288 @@
-<p align="center">
-	<img alt="logo" src="https://oscimg.oschina.net/oscnet/up-d3d0a9303e11d522a06cd263f3079027715.png">
-</p>
-<h1 align="center" style="margin: 30px 0 30px; font-weight: bold;">Egg v3.9.2</h1>
-<h4 align="center">基于SpringBoot+Vue前后端分离的Java快速开发框架</h4>
-<p align="center">
-	<a href="https://gitee.com/y_project/Egg-Vue/stargazers"><img src="https://gitee.com/y_project/Egg-Vue/badge/star.svg?theme=dark"></a>
-	<a href="https://gitee.com/y_project/Egg-Vue"><img src="https://img.shields.io/badge/Egg-v3.9.2-brightgreen.svg"></a>
-	<a href="https://gitee.com/y_project/Egg-Vue/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mashape/apistatus.svg"></a>
-</p>
+# 龙蛋 AI · 电商视觉内容生成工作台
 
-## 平台简介
+面向电商商家与内容团队的 AI 视觉生产系统。用户上传商品图后，系统先做视觉理解、再生成可确认的图片规划，确认后调用图片模型产出真实可用的电商主图与详情图；同时提供带 RAG 检索的智能电商问答，以及从剧情到分镜的短视频脚本生成链路。
 
-Egg是一套全部开源的快速开发平台，毫无保留给个人及企业免费使用。
+前端品牌名取自 `egg-user-web` 的 `VITE_APP_TITLE`（龙蛋 AI 电商视觉工作台）。后端代码由 RuoYi / Egg 脚手架改造而来，保留了原有的后台管理能力，产品方向已调整为 AI 电商视觉平台。
 
-* 前端采用Vue、Element UI。
-* 后端采用Spring Boot、Spring Security、Redis & Jwt。
-* 权限认证使用Jwt，支持多终端认证系统。
-* 支持加载动态权限菜单，多方式轻松权限控制。
-* 高效率开发，使用代码生成器可以一键生成前后端代码。
-* 阿里云折扣场：[点我进入](http://aly.egg.vip)，腾讯云秒杀场：[点我进入](http://txy.egg.vip)&nbsp;&nbsp;
+---
 
-# 版本分支
+## 一、当前进度
 
-Egg-Vue 后端项目提供 Spring Boot 2.x / 3.x / 4.x 多版本分支的并行维护。
+仓库里同时存在"已跑通的业务闭环"和"仅为占位的前端页面"，请按下表理解代码，不要被页面数量误导。
 
-| 名称              | 说明                      | 地址                                                    |
-| :---------------- | :------------------------ | :------------------------------------------------------ |
-| master 默认分支   | Spring Boot 4.x (JDK 17+) | https://gitee.com/y_project/Egg-Vue                   |
-| springboot3 分支  | Spring Boot 3.x (JDK 17+) | https://gitee.com/y_project/Egg-Vue/tree/springboot3  |
-| springboot2 分支  | Spring Boot 2.x (JDK 8+)  | https://gitee.com/y_project/Egg-Vue/tree/springboot2  |  
+| 能力 | 状态 | 说明 |
+|---|---|---|
+| 前台手机号登录 / 自动注册 / 重置密码 | 已实现 | 用户写入 `sys_user`，`user_type=03`，自动绑定 `common` 角色 |
+| 全品类商品图生成 | 已实现 | 上传→视觉分析→确认规划→出图→合成→审核，产出落阿里 OSS |
+| 商品库 / 商品详情 | 已实现 | 仅保存生成成功的商品；支持重命名、复用、下载、删除 |
+| 智能聊天 + RAG | 已实现 | SSE 流式输出，检索来源写入 `ai_chat_retrieval_sources` |
+| 剧情生成（文本链路） | 已实现 | 剧情→剧本→分镜→分镜校验→三视图提示词，支持失败节点重试与 Word/MD 导出 |
+| 任务中心 | 已实现 | 商品图与剧情任务统一入口，静默轮询、失败重试、取消 |
+| 后台提示词模板管理 | 已实现 | `ai_prompt_templates`，正文按 JSONB 存储 |
+| 后台 RAG 知识库 | 已实现 | 多文件上传（pdf/doc/docx/md/xls/xlsx/txt，单文件 100MB），Tika 解析 + 分块 + 向量化 |
+| 后台敏感词管理 | 已实现 | 敏感词分类与词条维护 |
+| 后台随机选号工具 | 已实现 | 双色球 / 大乐透 / 七乐彩，含历史开奖记录 |
+| 风格复刻 / 服装组图 / 批量精修 | 仅壳 | 复用 `GeneratorWorkspace`，未接后端任务 |
+| 素材库 / 工作台 / 配置说明 | 仅壳 | 页面数据来自 `src/data/mock.js` |
+| 万能画布 / 电商视频 / 价格 / A2A | 仅壳 | 按项目宪法属一期非目标或末位交付项 |
 
-Egg-Vue 前端项目提供 Vue 2.x / 3.x / JavaScript TypeScript 版本均可混用搭配
+> 项目宪法明确：一期不做积分、计费、支付、租户、团队空间和真实视频生成。占位页面是产品表达，不是待修 bug。
 
-| 项目名称      | **Egg-Vue** | **Egg-Vue3** | **Egg-Vue3-TypeScript**   |
-| :---          | :---          | :---           | :---                        |
-| **前端框架**  | Vue 2        | Vue 3          | Vue 3                       |
-| **脚本语言**  | JavaScript   | JavaScript     | TypeScript                  |
-| **构建工具**  | Vue CLI      | Vite           | Vite                        |
-| **UI 组件库** | Element UI   | Element Plus   | Element Plus                |
-| **状态管理**  | Vuex         | Pinia          | Pinia                       |
-| **路由管理**  | Vue Router 3 | Vue Router 4   | Vue Router 4                |
-| **核心特点**  | 1. 技术栈经典稳定<br>2. 社区资料丰富<br>3. 当前维护重心已转移 | 1. 现代前端技术栈<br>2. 开发体验与性能更优<br>3. 官方主推的活跃版本 | 1. 类型加持，减少沟通成本<br>2. 开发时有提示，效率更高<br>3. 多人协作企业级开发项目 |
-| **仓库地址**  | [Egg-Vue](https://gitee.com/y_project/Egg-Vue) | [Egg-Vue3](https://gitcode.com/yangzongzhuan/Egg-Vue3) | [Egg-Vue3-TypeScript](https://gitcode.com/yangzongzhuan/Egg-Vue3/tree/typescript) |
+---
 
-## 内置功能
+## 二、技术栈
 
-1.  用户管理：用户是系统操作者，该功能主要完成系统用户配置。
-2.  部门管理：配置系统组织机构（公司、部门、小组），树结构展现支持数据权限。
-3.  岗位管理：配置系统用户所属担任职务。
-4.  菜单管理：配置系统菜单，操作权限，按钮权限标识等。
-5.  角色管理：角色菜单权限分配、设置角色按机构进行数据范围权限划分。
-6.  字典管理：对系统中经常使用的一些较为固定的数据进行维护。
-7.  参数管理：对系统动态配置常用参数。
-8.  通知公告：系统通知公告信息发布维护。
-9.  操作日志：系统正常操作日志记录和查询；系统异常信息日志记录和查询。
-10. 登录日志：系统登录日志记录查询包含登录异常。
-11. 在线用户：当前系统中活跃用户状态监控。
-12. 定时任务：在线（添加、修改、删除)任务调度包含执行结果日志。
-13. 代码生成：前后端代码的生成（java、html、xml、sql）支持CRUD下载 。
-14. 系统接口：根据业务代码自动生成相关的api接口文档。
-15. 服务监控：监视当前系统CPU、内存、磁盘、堆栈等相关信息。
-16. 缓存监控：对系统的缓存信息查询，命令统计等。
-17. 在线构建器：拖动表单元素生成相应的HTML代码。
-18. 连接池监视：监视当前系统数据库连接池状态，可进行分析SQL找出系统性能瓶颈。
+| 层级 | 技术 | 版本 / 说明 |
+|---|---|---|
+| 后端 | Java + Spring Boot | Java 17，Spring Boot 4.0.6 |
+| 持久层 | MyBatis + PageHelper | MyBatis Starter 4.0.1，分页方言 PostgreSQL |
+| 数据库 | PostgreSQL + pgvector | Docker 镜像 `pgvector/pgvector:pg17` |
+| 缓存 | Redis | 登录态、Token、任务短期状态 |
+| 向量库 | Milvus / 内存实现双通道 | `EGG_AI_VECTOR_STORE` 切换，本地可退化到内存 |
+| AI 框架 | Spring AI | 2.0.0（BOM 方式引入） |
+| 对象存储 | 阿里云 OSS | 生成图必须转存，不依赖模型临时 URL |
+| 后台前端 | Vue 2 + Element UI | `egg-ui`，Vue CLI 构建，端口默认 80 |
+| 前台前端 | Vue 3 + Vite 7 + Element Plus | `egg-user-web`，开发端口 5177 |
+| 接口文档 | springdoc-openapi | `/swagger-ui.html`，仅扫描 `controller.ai` 包 |
 
-## 在线体验
+### 已接入的模型
 
-- admin/admin123  
-- 陆陆续续收到一些打赏，为了更好的体验已用于演示服务器升级。谢谢各位小伙伴。
+| 用途 | 提供方 | 模型 | 配置前缀 |
+|---|---|---|---|
+| 文本生成 | DashScope | `qwen3.7-max` | `egg.ai.model-gateway.text` |
+| 视觉理解 / 视觉审核 | DashScope | `qwen3.7-plus` | `egg.ai.model-gateway.vision` |
+| 图片生成 | DashScope（通义万相） | `wan2.7-image-pro` | `egg.ai.model-gateway.image` |
+| Embedding | DashScope | `text-embedding-v4`（1536 维） | `egg.ai.model-gateway.embedding` |
+| 剧情生成 | DeepSeek | `deepseek-v4-pro` | `egg.ai.model-gateway.story` |
 
-演示地址：http://vue.egg.vip  
-文档地址：http://doc.egg.vip
+所有 provider 都支持 `mock` 回退，本地无密钥也能启动，但只会拿到占位内容。
 
-## 演示图
+---
 
-<table>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/cd1f90be5f2684f4560c9519c0f2a232ee8.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/1cbcf0e6f257c7d3a063c0e3f2ff989e4b3.jpg"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8074972883b5ba0622e13246738ebba237a.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-9f88719cdfca9af2e58b352a20e23d43b12.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-39bf2584ec3a529b0d5a3b70d15c9b37646.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-936ec82d1f4872e1bc980927654b6007307.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-b2d62ceb95d2dd9b3fbe157bb70d26001e9.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d67451d308b7a79ad6819723396f7c3d77a.png"/></td>
-    </tr>	 
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/5e8c387724954459291aafd5eb52b456f53.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/644e78da53c2e92a95dfda4f76e6d117c4b.jpg"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-8370a0d02977eebf6dbf854c8450293c937.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-49003ed83f60f633e7153609a53a2b644f7.png"/></td>
-    </tr>
-	<tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-d4fe726319ece268d4746602c39cffc0621.png"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-c195234bbcd30be6927f037a6755e6ab69c.png"/></td>
-    </tr>
-    <tr>
-        <td><img src="https://oscimg.oschina.net/oscnet/b6115bc8c31de52951982e509930b20684a.jpg"/></td>
-        <td><img src="https://oscimg.oschina.net/oscnet/up-5e4daac0bb59612c5038448acbcef235e3a.png"/></td>
-    </tr>
-</table>
+## 三、目录结构
 
+```
+egg_commerce_ai/
+├── egg-admin/          后端 Web 入口、Controller、启动类、清理定时任务
+├── egg-framework/      安全、Web、Redis、数据源、模型网关配置
+├── egg-system/         领域模型、Mapper、业务服务（AI 业务核心都在这里）
+├── egg-common/         通用工具、常量、注解、异常
+├── egg-quartz/         定时任务模块（脚手架自带）
+├── egg-generator/      代码生成模块（脚手架自带）
+├── egg-ui/             后台管理前端（Vue 2 + Element UI）
+├── egg-user-web/       前台用户工作台（Vue 3 + Vite）
+├── sql/                建表与种子脚本
+├── docker/             PostgreSQL 初始化脚本
+├── docs/               项目宪法、改动记录、功能地图
+└── compose.postgres.yml 本地依赖编排（PostgreSQL + Redis）
+```
 
-## Egg前后端分离交流群
+### 后端 AI 业务分区
 
-QQ群： [![加入QQ群](https://img.shields.io/badge/已满-937441-blue.svg)](https://jq.qq.com/?_wv=1027&k=5bVB1og) [![加入QQ群](https://img.shields.io/badge/已满-887144332-blue.svg)](https://jq.qq.com/?_wv=1027&k=5eiA4DH) [![加入QQ群](https://img.shields.io/badge/已满-180251782-blue.svg)](https://jq.qq.com/?_wv=1027&k=5AxMKlC) [![加入QQ群](https://img.shields.io/badge/已满-104180207-blue.svg)](https://jq.qq.com/?_wv=1027&k=51G72yr) [![加入QQ群](https://img.shields.io/badge/已满-186866453-blue.svg)](https://jq.qq.com/?_wv=1027&k=VvjN2nvu) [![加入QQ群](https://img.shields.io/badge/已满-201396349-blue.svg)](https://jq.qq.com/?_wv=1027&k=5vYAqA05) [![加入QQ群](https://img.shields.io/badge/已满-101456076-blue.svg)](https://jq.qq.com/?_wv=1027&k=kOIINEb5) [![加入QQ群](https://img.shields.io/badge/已满-101539465-blue.svg)](https://jq.qq.com/?_wv=1027&k=UKtX5jhs) [![加入QQ群](https://img.shields.io/badge/已满-264312783-blue.svg)](https://jq.qq.com/?_wv=1027&k=EI9an8lJ) [![加入QQ群](https://img.shields.io/badge/已满-167385320-blue.svg)](https://jq.qq.com/?_wv=1027&k=SWCtLnMz) [![加入QQ群](https://img.shields.io/badge/已满-104748341-blue.svg)](https://jq.qq.com/?_wv=1027&k=96Dkdq0k) [![加入QQ群](https://img.shields.io/badge/已满-160110482-blue.svg)](https://jq.qq.com/?_wv=1027&k=0fsNiYZt) [![加入QQ群](https://img.shields.io/badge/已满-170801498-blue.svg)](https://jq.qq.com/?_wv=1027&k=7xw4xUG1) [![加入QQ群](https://img.shields.io/badge/已满-108482800-blue.svg)](https://jq.qq.com/?_wv=1027&k=eCx8eyoJ) [![加入QQ群](https://img.shields.io/badge/已满-101046199-blue.svg)](https://jq.qq.com/?_wv=1027&k=SpyH2875) [![加入QQ群](https://img.shields.io/badge/已满-136919097-blue.svg)](https://jq.qq.com/?_wv=1027&k=tKEt51dz) [![加入QQ群](https://img.shields.io/badge/已满-143961921-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=0vBbSb0ztbBgVtn3kJS-Q4HUNYwip89G&authKey=8irq5PhutrZmWIvsUsklBxhj57l%2F1nOZqjzigkXZVoZE451GG4JHPOqW7AW6cf0T&noverify=0&group_code=143961921) [![加入QQ群](https://img.shields.io/badge/已满-174951577-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=ZFAPAbp09S2ltvwrJzp7wGlbopsc0rwi&authKey=HB2cxpxP2yspk%2Bo3WKTBfktRCccVkU26cgi5B16u0KcAYrVu7sBaE7XSEqmMdFQp&noverify=0&group_code=174951577) [![加入QQ群](https://img.shields.io/badge/已满-161281055-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Fn2aF5IHpwsy8j6VlalNJK6qbwFLFHat&authKey=uyIT%2B97x2AXj3odyXpsSpVaPMC%2Bidw0LxG5MAtEqlrcBcWJUA%2FeS43rsF1Tg7IRJ&noverify=0&group_code=161281055) [![加入QQ群](https://img.shields.io/badge/已满-138988063-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=XIzkm_mV2xTsUtFxo63bmicYoDBA6Ifm&authKey=dDW%2F4qsmw3x9govoZY9w%2FoWAoC4wbHqGal%2BbqLzoS6VBarU8EBptIgPKN%2FviyC8j&noverify=0&group_code=138988063) [![加入QQ群](https://img.shields.io/badge/已满-151450850-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=DkugnCg68PevlycJSKSwjhFqfIgrWWwR&authKey=pR1Pa5lPIeGF%2FFtIk6d%2FGB5qFi0EdvyErtpQXULzo03zbhopBHLWcuqdpwY241R%2F&noverify=0&group_code=151450850) [![加入QQ群](https://img.shields.io/badge/已满-224622315-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=F58bgRa-Dp-rsQJThiJqIYv8t4-lWfXh&authKey=UmUs4CVG5OPA1whvsa4uSespOvyd8%2FAr9olEGaWAfdLmfKQk%2FVBp2YU3u2xXXt76&noverify=0&group_code=224622315) [![加入QQ群](https://img.shields.io/badge/已满-287842588-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=Nxb2EQ5qozWa218Wbs7zgBnjLSNk_tVT&authKey=obBKXj6SBKgrFTJZx0AqQnIYbNOvBB2kmgwWvGhzxR67RoRr84%2Bus5OadzMcdJl5&noverify=0&group_code=287842588) [![加入QQ群](https://img.shields.io/badge/已满-187944233-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=numtK1M_I4eVd2Gvg8qtbuL8JgX42qNh&authKey=giV9XWMaFZTY%2FqPlmWbkB9g3fi0Ev5CwEtT9Tgei0oUlFFCQLDp4ozWRiVIzubIm&noverify=0&group_code=187944233) [![加入QQ群](https://img.shields.io/badge/已满-228578329-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=G6r5KGCaa3pqdbUSXNIgYloyb8e0_L0D&authKey=4w8tF1eGW7%2FedWn%2FHAypQksdrML%2BDHolQSx7094Agm7Luakj9EbfPnSTxSi2T1LQ&noverify=0&group_code=228578329) [![加入QQ群](https://img.shields.io/badge/已满-191164766-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=GsOo-OLz53J8y_9TPoO6XXSGNRTgbFxA&authKey=R7Uy%2Feq%2BZsoKNqHvRKhiXpypW7DAogoWapOawUGHokJSBIBIre2%2FoiAZeZBSLuBc&noverify=0&group_code=191164766) [![加入QQ群](https://img.shields.io/badge/已满-174569686-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=PmYavuzsOthVqfdAPbo4uAeIbu7Ttjgc&authKey=p52l8%2FXa4PS1JcEmS3VccKSwOPJUZ1ZfQ69MEKzbrooNUljRtlKjvsXf04bxNp3G&noverify=0&group_code=174569686) [![加入QQ群](https://img.shields.io/badge/127358632-blue.svg)](http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=M9y5NjAl44lAL_Vh2crmEehZU_PMU6KS&authKey=ZSDz8hEREWSaPuxQV3gEwqGIaGjfRNnkB4rJjf0IvXhrSUGSGwQFmBA%2Boe8HFxyl&noverify=0&group_code=127358632) 点击按钮入群。
+| 包路径 | 职责 |
+|---|---|
+| `service/ai/model` | 模型网关：文本、视觉、图片、Embedding 的统一出口 |
+| `service/ai/product` | 商品图任务编排、资产工作流、Java2D 文字合成、审核、清理 |
+| `service/ai/chat` | 聊天会话、消息、RAG 增强对话、SSE 流式 |
+| `service/ai/rag` | 文档解析、分块、向量写入（Milvus / 内存） |
+| `service/ai/knowledge` | 知识库文档元数据与向量化状态 |
+| `service/ai/story` | 剧情任务固定节点链、重试恢复、Word/MD 导出 |
+| `service/ai/prompt` | 提示词模板 CRUD |
+| `service/ai/sensitive` | 敏感词与分类 |
+| `service/ai/storage` | OSS 上传、签名 URL、MIME 推导 |
+
+---
+
+## 四、本地启动
+
+### 1. 启动依赖
+
+先启动 Docker Desktop，然后在项目根目录执行：
+
+```bash
+docker compose -f compose.postgres.yml up -d
+docker compose -f compose.postgres.yml ps
+```
+
+默认暴露：PostgreSQL `5432`、Redis `6381`（容器内 6379 映射到宿主机 6381）。
+
+### 2. 初始化数据库
+
+首次启动会由 `docker/postgres/init/001-enable-vector.sql` 自动启用 pgvector 扩展。业务表需要手动导入，建议顺序如下（与 `docs/change-log.md` 中的引入顺序一致）：
+
+```bash
+docker cp ./sql/egg_postgresql.sql egg-postgres:/tmp/01.sql
+docker exec -v ON_ERROR_STOP=1 egg-postgres psql -U egg -d egg -f /tmp/01.sql
+```
+
+随后依次导入：
+
+```
+sql/egg_postgresql.sql                 脚手架基础表
+sql/ai_knowledge_sensitive_rag.sql     知识库、敏感词、聊天会话
+sql/ai_prompt_template_management.sql  提示词模板
+sql/ai_product_image_generation.sql    商品资产、商品任务
+sql/ai_story_generation.sql            剧情任务、平台规则
+sql/lottery_random_picker.sql          随机选号（可选）
+sql/quartz.sql                         定时任务表（可选）
+```
+
+> 若某个脚本因外键或菜单依赖报错，按报错信息调整顺序即可，上述顺序来自改动记录而非脚本内声明。
+
+### 3. 配置后端环境变量
+
+复制 `.env.example` 为 `.env` 并填写密钥。注意：**`.env` 只被 `docker compose` 读取**；后端进程需要系统环境变量或 IDEA 的 Run Configuration 环境变量，两者不会自动打通。
+
+至少要填：
+
+```bash
+EGG_DEEPSEEK_API_KEY=            # 剧情生成
+EGG_DASHSCOPE_API_KEY=           # 文本 / 视觉 / 图片 / Embedding
+EGG_ALIOSS_ACCESS_KEY_ID=        # 对象存储
+EGG_ALIOSS_ACCESS_KEY_SECRET=
+```
+
+关键默认值（见 `egg-admin/src/main/resources/application.yml`）：
+
+```text
+EGG_AI_MOCK_ENABLED=true         本地默认走 mock，不填密钥也能起
+EGG_MODEL_IMAGE_PROVIDER=dashscope
+EGG_MODEL_STORY_PROVIDER=deepseek
+EGG_AI_VECTOR_STORE=milvus       设为内存实现或确保 Milvus 已启动
+EGG_MILVUS_INITIALIZE_SCHEMA=false  已有 collection 时保持关闭
+```
+
+### 4. 启动后端
+
+```bash
+mvn clean package -DskipTests
+java -jar egg-admin/target/egg-admin.jar
+```
+
+或在 IDEA 中直接运行 `com.egg.commerce.EggApplication`。默认端口 `8080`，接口文档 `/swagger-ui.html`。
+
+### 5. 启动前端
+
+后台管理端（Egg 风格）：
+
+```bash
+cd egg-ui
+npm install
+npm run dev
+```
+
+前台用户工作台：
+
+```bash
+cd egg-user-web
+npm install
+npm run dev      # http://localhost:5177
+```
+
+前台开发代理会把 `/api` 前缀剥离后转发到 `VITE_API_PROXY_TARGET`（默认 `http://localhost:8080`）。后端 Controller 本身没有 `/api` 前缀，改动代理规则时注意保持一致。
+
+---
+
+## 五、核心业务流程
+
+### 商品图生成
+
+```
+上传源图(OSS) → 视觉分析 → 确认规划(等待用户) → 逐方案出图 → Java2D 文字合成 → 审核 → 入商品库
+```
+
+- 任务在 `status=waiting_confirmation` 处停下，用户确认后才进入生成，避免白烧图片额度。
+- 规划必须给出足量且互不相同的 `imagePrompts`，不足时自动重规划最多 2 次。
+- 模型原始输出存为 `generated_base`，后端合成后的图存为 `generated`，前台只展示和下载后者。
+- 审核不阻断任务：`ruleAudit` / `visionAudit` / `auditSummary` 写入 `generation_output`，风险以角标呈现。
+- `图片带文字=否` 会强制 `textOverlay.enabled=false`，跳过合成，直接返回底图。
+- 定时清理：超过 12 小时的草稿上传、以及 OSS 中缺少数据库记录的孤儿对象。
+
+### 剧情生成
+
+```
+剧情生成 → 剧本生成 → 分镜生成 → 分镜校验 → 三视图/场景图
+```
+
+- 五个节点串行执行，全部输出存在同一行 `ai_story_tasks` 里，不做节点级拆表。
+- 失败重试从失败节点开始，或回溯到最近一个上游输出可用的节点；已成功的上游内容保留。
+- 三视图/场景图节点当前只产出提示词文本，尚未调用图片模型。
+- 平台专用提示词按名称前缀匹配：`抖音-`、`快手-`、`视频号-`、`小红书-`。
+
+### 智能聊天
+
+- 会话、消息、检索来源分表存储：`ai_chat_sessions` / `ai_chat_messages` / `ai_chat_retrieval_sources`。
+- 检索参数：`egg.ai.rag.top-k`（默认 6）、`egg.ai.rag.min-score`（默认 0.62）。
+- 流式接口 `POST /ai/chat/session/{id}/message/stream` 以 SSE 返回。
+
+---
+
+## 六、接口分区
+
+| 前缀 | 说明 |
+|---|---|
+| `/ai/product/**` | 商品资产、商品图任务、确认/重规划/取消、AI 帮写 |
+| `/ai/chat/**` | 会话列表、创建、消息、流式发送 |
+| `/ai/story/**` | 剧情任务提交、查询、重试、导出 |
+| `/ai/prompt/**` | 提示词模板管理（后台） |
+| `/ai/knowledge/**` | 知识库文档上传、批量上传、下载（后台） |
+| `/ai/sensitive/**` | 敏感词与分类（后台） |
+| `/system/**`、`/monitor/**`、`/tool/**` | 脚手架自带的后台能力 |
+
+---
+
+## 七、项目文档
+
+| 文件 | 作用 |
+|---|---|
+| `docs/project-constitution.md` | 项目宪法，最高优先级约束，当前 v1.2.2 |
+| `docs/feature-map.md` | 功能到代码路径的索引，改代码前先查这里 |
+| `docs/change-log.md` | 按日期记录的改动流水，含"为什么改" |
+| `docs/phase-one-module-configuration.md` | 各外部依赖的配置原因与方式 |
+| `docs/postgresql-migration.md` | 从 MySQL 迁移到 PostgreSQL 的步骤 |
+| `AGENTS.md` | 给 AI Agent 的入口规则，要求先读宪法 |
+
+### 开发约定
+
+1. 动手前读 `docs/project-constitution.md`，与宪法冲突的需求先确认再改。
+2. 新增或移动功能代码，同步更新 `docs/feature-map.md`。
+3. 每次有意义的改动，在 `docs/change-log.md` 追加一条。
+4. 业务逻辑、AI 流程、存储、集成等非显而易见处必须写注释；不要写复述语法的注释。
+
+### 测试
+
+- 后端：`mvn test`，`egg-system` 与 `egg-framework` 下有 20+ 个服务级测试。
+- 前台：测试文件为 Node 原生 `node:test`（如 `egg-user-web/src/pages/TasksPage.test.js`），可直接用 `node --test` 运行，仓库未配置 npm script。
+
+---
+
+## 八、已知坑
+
+| 现象 | 原因 |
+|---|---|
+| 后端连不上 Redis | `application.yml` 中 Redis host/port 写死 `localhost:6379`，而 compose 映射到 `6381`，需两者对齐 |
+| 启动报 Milvus 连接失败 | `EGG_AI_VECTOR_STORE` 默认 `milvus`，未启动 Milvus 时应切到内存实现 |
+| 知识库上传成功但向量化失败 | 检查 DashScope 密钥、Tika 解析结果与批量大小（单批上限 10 个 chunk） |
+| 剧情任务输出像提示词本身 | `EGG_MODEL_STORY_PROVIDER` 仍是 `mock` |
+| 后台新增页面 404 | 菜单存的组件路径需带 `.vue`，动态路由解析对此敏感 |
+
+---
+
+## 九、许可证
+
+本仓库根目录的 `LICENSE` 为 MIT 协议，版权声明为 `Copyright (c) 2018 RuoYi`，来自上游脚手架。本项目在其基础上做了大量二次开发，但依据 MIT 协议"版权声明与许可声明须包含在软件的所有副本或实质性部分中"的要求，原始版权行必须保留。
+
+如需声明自有版权，正确做法是在同一文件中追加一行，而不是替换原行：
+
+```
+Copyright (c) 2018 RuoYi
+Copyright (c) 2026 <你的名字或组织>
+```
+
+具体授权安排建议按团队实际需求确认，本段仅为对 MIT 条款的说明，不构成法律意见。
+
+---
+
+## 十、致谢
+
+后端骨架、权限体系、代码生成器与后台管理界面来自 RuoYi / Egg 生态；AI 能力分别接入阿里云 DashScope（通义千问 / 通义万相）与 DeepSeek。

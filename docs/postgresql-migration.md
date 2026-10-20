@@ -85,7 +85,7 @@ The project has been switched to PostgreSQL:
 - Key MyBatis mapper SQL under `egg-system` and `egg-quartz` has been adapted from MySQL syntax to PostgreSQL syntax.
 - `egg-framework` data-scope SQL has been adapted away from MySQL `find_in_set`.
 
-Redis currently maps Docker host port `6380` to container port `6379`, so the backend default Redis port is set to `6380`.
+Redis currently maps Docker host port `6381` to container port `6379`, so the backend default Redis port is set to `6381`. Port `6380` is often used by an existing local Redis Stack container.
 
 ## 4. Run The Backend
 

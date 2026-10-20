@@ -119,15 +119,11 @@ CREATE TABLE sys_menu (
 insert into sys_menu values('1', '系统管理', '0', '1', 'system',           null, '', '', 1, 0, 'M', '0', '0', '', 'system',   'admin', now(), '', null, '系统管理目录');
 insert into sys_menu values('2', '系统监控', '0', '2', 'monitor',          null, '', '', 1, 0, 'M', '0', '0', '', 'monitor',  'admin', now(), '', null, '系统监控目录');
 insert into sys_menu values('3', '系统工具', '0', '3', 'tool',             null, '', '', 1, 0, 'M', '0', '0', '', 'tool',     'admin', now(), '', null, '系统工具目录');
-insert into sys_menu values('4', 'Egg官网', '0', '4', 'http://egg.vip', null, '', '', 0, 0, 'M', '0', '0', '', 'guide',    'admin', now(), '', null, 'Egg官网地址');
 insert into sys_menu values('100',  '用户管理', '1',   '1', 'user',       'system/user/index',        '', '', 1, 0, 'C', '0', '0', 'system:user:list',        'user',          'admin', now(), '', null, '用户管理菜单');
 insert into sys_menu values('101',  '角色管理', '1',   '2', 'role',       'system/role/index',        '', '', 1, 0, 'C', '0', '0', 'system:role:list',        'peoples',       'admin', now(), '', null, '角色管理菜单');
 insert into sys_menu values('102',  '菜单管理', '1',   '3', 'menu',       'system/menu/index',        '', '', 1, 0, 'C', '0', '0', 'system:menu:list',        'tree-table',    'admin', now(), '', null, '菜单管理菜单');
-insert into sys_menu values('103',  '部门管理', '1',   '4', 'dept',       'system/dept/index',        '', '', 1, 0, 'C', '0', '0', 'system:dept:list',        'tree',          'admin', now(), '', null, '部门管理菜单');
-insert into sys_menu values('104',  '岗位管理', '1',   '5', 'post',       'system/post/index',        '', '', 1, 0, 'C', '0', '0', 'system:post:list',        'post',          'admin', now(), '', null, '岗位管理菜单');
 insert into sys_menu values('105',  '字典管理', '1',   '6', 'dict',       'system/dict/index',        '', '', 1, 0, 'C', '0', '0', 'system:dict:list',        'dict',          'admin', now(), '', null, '字典管理菜单');
 insert into sys_menu values('106',  '参数设置', '1',   '7', 'config',     'system/config/index',      '', '', 1, 0, 'C', '0', '0', 'system:config:list',      'edit',          'admin', now(), '', null, '参数设置菜单');
-insert into sys_menu values('107',  '通知公告', '1',   '8', 'notice',     'system/notice/index',      '', '', 1, 0, 'C', '0', '0', 'system:notice:list',      'message',       'admin', now(), '', null, '通知公告菜单');
 insert into sys_menu values('108',  '日志管理', '1',   '9', 'log',        '',                         '', '', 1, 0, 'M', '0', '0', '',                        'log',           'admin', now(), '', null, '日志管理菜单');
 insert into sys_menu values('109',  '在线用户', '2',   '1', 'online',     'monitor/online/index',     '', '', 1, 0, 'C', '0', '0', 'monitor:online:list',     'online',        'admin', now(), '', null, '在线用户菜单');
 insert into sys_menu values('110',  '定时任务', '2',   '2', 'job',        'monitor/job/index',        '', '', 1, 0, 'C', '0', '0', 'monitor:job:list',        'job',           'admin', now(), '', null, '定时任务菜单');
@@ -156,15 +152,6 @@ insert into sys_menu values('1012', '菜单查询', '102', '1',  '', '', '', '',
 insert into sys_menu values('1013', '菜单新增', '102', '2',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:menu:add',            '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1014', '菜单修改', '102', '3',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:menu:edit',           '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1015', '菜单删除', '102', '4',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:menu:remove',         '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1016', '部门查询', '103', '1',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:dept:query',          '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1017', '部门新增', '103', '2',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:dept:add',            '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1018', '部门修改', '103', '3',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:dept:edit',           '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1019', '部门删除', '103', '4',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:dept:remove',         '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1020', '岗位查询', '104', '1',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:post:query',          '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1021', '岗位新增', '104', '2',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:post:add',            '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1022', '岗位修改', '104', '3',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:post:edit',           '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1023', '岗位删除', '104', '4',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:post:remove',         '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1024', '岗位导出', '104', '5',  '', '', '', '', 1, 0, 'F', '0', '0', 'system:post:export',         '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1025', '字典查询', '105', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:dict:query',          '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1026', '字典新增', '105', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:dict:add',            '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1027', '字典修改', '105', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:dict:edit',           '#', 'admin', now(), '', null, '');
@@ -175,10 +162,6 @@ insert into sys_menu values('1031', '参数新增', '106', '2', '#', '', '', '',
 insert into sys_menu values('1032', '参数修改', '106', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:edit',         '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1033', '参数删除', '106', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:remove',       '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1034', '参数导出', '106', '5', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:export',       '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1035', '公告查询', '107', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:query',        '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1036', '公告新增', '107', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:add',          '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1037', '公告修改', '107', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:edit',         '#', 'admin', now(), '', null, '');
-insert into sys_menu values('1038', '公告删除', '107', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:remove',       '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1039', '操作查询', '500', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'monitor:operlog:query',      '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1040', '操作删除', '500', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'monitor:operlog:remove',     '#', 'admin', now(), '', null, '');
 insert into sys_menu values('1041', '日志导出', '500', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'monitor:operlog:export',     '#', 'admin', now(), '', null, '');
@@ -361,8 +344,6 @@ insert into sys_dict_type values(3,  '系统开关', 'sys_normal_disable',  '0',
 insert into sys_dict_type values(4,  '任务状态', 'sys_job_status',      '0', 'admin', now(), '', null, '任务状态列表');
 insert into sys_dict_type values(5,  '任务分组', 'sys_job_group',       '0', 'admin', now(), '', null, '任务分组列表');
 insert into sys_dict_type values(6,  '系统是否', 'sys_yes_no',          '0', 'admin', now(), '', null, '系统是否列表');
-insert into sys_dict_type values(7,  '通知类型', 'sys_notice_type',     '0', 'admin', now(), '', null, '通知类型列表');
-insert into sys_dict_type values(8,  '通知状态', 'sys_notice_status',   '0', 'admin', now(), '', null, '通知状态列表');
 insert into sys_dict_type values(9,  '操作类型', 'sys_oper_type',       '0', 'admin', now(), '', null, '操作类型列表');
 insert into sys_dict_type values(10, '系统状态', 'sys_common_status',   '0', 'admin', now(), '', null, '登录状态列表');
 DROP TABLE IF EXISTS sys_dict_data CASCADE;
@@ -396,10 +377,6 @@ insert into sys_dict_data values(10, 1,  '默认',     'DEFAULT', 'sys_job_group
 insert into sys_dict_data values(11, 2,  '系统',     'SYSTEM',  'sys_job_group',       '',   '',        'N', '0', 'admin', now(), '', null, '系统分组');
 insert into sys_dict_data values(12, 1,  '是',       'Y',       'sys_yes_no',          '',   'primary', 'Y', '0', 'admin', now(), '', null, '系统默认是');
 insert into sys_dict_data values(13, 2,  '否',       'N',       'sys_yes_no',          '',   'danger',  'N', '0', 'admin', now(), '', null, '系统默认否');
-insert into sys_dict_data values(14, 1,  '通知',     '1',       'sys_notice_type',     '',   'warning', 'Y', '0', 'admin', now(), '', null, '通知');
-insert into sys_dict_data values(15, 2,  '公告',     '2',       'sys_notice_type',     '',   'success', 'N', '0', 'admin', now(), '', null, '公告');
-insert into sys_dict_data values(16, 1,  '正常',     '0',       'sys_notice_status',   '',   'primary', 'Y', '0', 'admin', now(), '', null, '正常状态');
-insert into sys_dict_data values(17, 2,  '关闭',     '1',       'sys_notice_status',   '',   'danger',  'N', '0', 'admin', now(), '', null, '关闭状态');
 insert into sys_dict_data values(18, 99, '其他',     '0',       'sys_oper_type',       '',   'info',    'N', '0', 'admin', now(), '', null, '其他操作');
 insert into sys_dict_data values(19, 1,  '新增',     '1',       'sys_oper_type',       '',   'info',    'N', '0', 'admin', now(), '', null, '新增操作');
 insert into sys_dict_data values(20, 2,  '修改',     '2',       'sys_oper_type',       '',   'info',    'N', '0', 'admin', now(), '', null, '修改操作');
@@ -484,32 +461,6 @@ CREATE TABLE sys_job_log (
   create_time timestamp,
   primary key (job_log_id)
 );
-DROP TABLE IF EXISTS sys_notice CASCADE;
-CREATE TABLE sys_notice (
-  notice_id integer generated by default as identity not null,
-  notice_title varchar(50) not null,
-  notice_type char(1) not null,
-  notice_content text default null,
-  status char(1) default '0',
-  create_by varchar(64) default '',
-  create_time timestamp,
-  update_by varchar(64) default '',
-  update_time timestamp,
-  remark varchar(255) default null,
-  primary key (notice_id)
-);
-insert into sys_notice values('1', '温馨提醒：2018-07-01 Egg新版本发布啦', '2', '新版本内容', '0', 'admin', now(), '', null, '管理员');
-insert into sys_notice values('2', '维护通知：2018-07-01 Egg系统凌晨维护', '1', '维护内容',   '0', 'admin', now(), '', null, '管理员');
-insert into sys_notice values('3', 'Egg开源框架介绍', '1', '<p><span style=\"color: rgb(230, 0, 0);\">项目介绍</span></p><p><font color=\"#333333\">Egg开源项目是为企业用户定制的后台脚手架框架，为企业打造的一站式解决方案，降低企业开发成本，提升开发效率。主要包括用户管理、角色管理、部门管理、菜单管理、参数管理、字典管理、</font><span style=\"color: rgb(51, 51, 51);\">岗位管理</span><span style=\"color: rgb(51, 51, 51);\">、定时任务</span><span style=\"color: rgb(51, 51, 51);\">、</span><span style=\"color: rgb(51, 51, 51);\">服务监控、登录日志、操作日志、代码生成等功能。其中，还支持多数据源、数据权限、国际化、Redis缓存、Docker部署、滑动验证码、第三方认证登录、分布式事务、</span><font color=\"#333333\">分布式文件存储</font><span style=\"color: rgb(51, 51, 51);\">、分库分表处理等技术特点。</span></p><p><img src=\"https://foruda.gitee.com/images/1773931848342439032/a4d22313_1815095.png\" style=\"width: 64px;\"><br></p><p><span style=\"color: rgb(230, 0, 0);\">官网及演示</span></p><p><span style=\"color: rgb(51, 51, 51);\">Egg官网地址：&nbsp;</span><a href=\"http://egg.vip\" target=\"_blank\">http://egg.vip</a><a href=\"http://egg.vip\" target=\"_blank\"></a></p><p><span style=\"color: rgb(51, 51, 51);\">Egg文档地址：&nbsp;</span><a href=\"http://doc.egg.vip\" target=\"_blank\">http://doc.egg.vip</a><br></p><p><span style=\"color: rgb(51, 51, 51);\">演示地址【不分离版】：&nbsp;</span><a href=\"http://demo.egg.vip\" target=\"_blank\">http://demo.egg.vip</a></p><p><span style=\"color: rgb(51, 51, 51);\">演示地址【分离版本】：&nbsp;</span><a href=\"http://vue.egg.vip\" target=\"_blank\">http://vue.egg.vip</a></p><p><span style=\"color: rgb(51, 51, 51);\">演示地址【微服务版】：&nbsp;</span><a href=\"http://cloud.egg.vip\" target=\"_blank\">http://cloud.egg.vip</a></p><p><span style=\"color: rgb(51, 51, 51);\">演示地址【移动端版】：&nbsp;</span><a href=\"http://h5.egg.vip\" target=\"_blank\">http://h5.egg.vip</a></p><p><br style=\"color: rgb(48, 49, 51); font-family: &quot;Helvetica Neue&quot;, Helvetica, Arial, sans-serif; font-size: 12px;\"></p>', '0', 'admin', now(), '', null, '管理员');
-DROP TABLE IF EXISTS sys_notice_read CASCADE;
-CREATE TABLE sys_notice_read (
-  read_id bigint generated by default as identity not null,
-  notice_id integer not null,
-  user_id bigint not null,
-  read_time timestamp not null,
-  primary key (read_id)
-);
-CREATE UNIQUE INDEX uk_user_notice ON sys_notice_read (user_id, notice_id);
 DROP TABLE IF EXISTS gen_table CASCADE;
 CREATE TABLE gen_table (
   table_id bigint generated by default as identity not null,
@@ -575,8 +526,6 @@ SELECT setval(pg_get_serial_sequence('sys_config', 'config_id'), COALESCE((SELEC
 SELECT setval(pg_get_serial_sequence('sys_logininfor', 'info_id'), COALESCE((SELECT MAX(info_id) FROM sys_logininfor), 1), true);
 SELECT setval(pg_get_serial_sequence('sys_job', 'job_id'), COALESCE((SELECT MAX(job_id) FROM sys_job), 1), true);
 SELECT setval(pg_get_serial_sequence('sys_job_log', 'job_log_id'), COALESCE((SELECT MAX(job_log_id) FROM sys_job_log), 1), true);
-SELECT setval(pg_get_serial_sequence('sys_notice', 'notice_id'), COALESCE((SELECT MAX(notice_id) FROM sys_notice), 1), true);
-SELECT setval(pg_get_serial_sequence('sys_notice_read', 'read_id'), COALESCE((SELECT MAX(read_id) FROM sys_notice_read), 1), true);
 SELECT setval(pg_get_serial_sequence('gen_table', 'table_id'), COALESCE((SELECT MAX(table_id) FROM gen_table), 1), true);
 SELECT setval(pg_get_serial_sequence('gen_table_column', 'column_id'), COALESCE((SELECT MAX(column_id) FROM gen_table_column), 1), true);
 
